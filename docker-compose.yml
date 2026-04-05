@@ -1,0 +1,85 @@
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: tenex-cal-frontend
+    env_file:
+      - ./frontend/.env
+    volumes:
+      - ./frontend:/app/frontend
+      - /app/frontend/node_modules
+    # Local browser uses :3002; Vite listens on :3000 inside the container
+    ports:
+      - "3002:3000"
+    depends_on:
+      backend:
+        condition: service_started
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: tenex-cal-backend
+    command: sh -c "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
+    env_file:
+      - ./backend/.env
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,0.0.0.0,backend
+      INNGEST_APP_ID: cal-assistant-backend
+      INNGEST_BASE_URL: http://inngest:8288
+      INNGEST_EVENT_KEY: dev-event-key
+      INNGEST_SIGNING_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      INNGEST_SERVE_ORIGIN: http://backend:8000
+      INNGEST_SERVE_PATH: /api/inngest
+      POSTGRES_ENABLED: "true"
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+    volumes:
+      - ./backend:/app/backend
+    # Host 8002 maps to Django’s :8000 inside the container
+    ports:
+      - "8002:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  inngest:
+    image: inngest/inngest
+    container_name: tenex-cal-inngest
+    command: inngest start --poll-interval 5 --sdk-url http://backend:8000/api/inngest
+    environment:
+      INNGEST_EVENT_KEY: dev-event-key
+      INNGEST_SIGNING_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      INNGEST_SQLITE_DIR: /data
+    ports:
+      - "8388:8288"
+      - "8389:8289"
+    volumes:
+      - inngest_data:/data
+    depends_on:
+      backend:
+        condition: service_started
+
+  db:
+    image: postgres:16-alpine
+    container_name: tenex-cal-db
+    environment:
+      POSTGRES_DB: tenex_cal
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    # Host 5433 avoids conflict with a local Postgres on 5432; inside the stack, db is still :5432
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d tenex_cal"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres_data:
+  inngest_data:
