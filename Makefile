@@ -27,7 +27,7 @@ migrate:
 
 .PHONY: test
 test:
-	$(MANAGE) test apps.accounts.tests apps.calendars.tests apps.core_agent.tests apps.chat.tests apps.bff.tests
+	$(MANAGE) test apps.accounts.tests apps.analytics.tests apps.bff.tests apps.calendars.tests apps.chat.tests apps.core.tests apps.core_agent.tests apps.preferences.tests
 
 .PHONY: backend-format
 backend-format:
@@ -123,4 +123,4 @@ createsuper:
 
 .PHONY: docker-test
 docker-test:
-	$(COMPOSE) exec backend python manage.py test apps.accounts.tests apps.calendars.tests apps.core_agent.tests apps.chat.tests apps.bff.tests
+	$(COMPOSE) exec backend python manage.py test apps.accounts.tests apps.analytics.tests apps.bff.tests apps.calendars.tests apps.chat.tests apps.core.tests apps.core_agent.tests apps.preferences.tests

@@ -11,17 +11,20 @@ It lets a signed-in user:
 - explore read-only analytics with inline charts
 - save useful analytics insights to a lightweight dashboard
 
-The current stack is:
+![Calendar workspace with chat assistant and analytics chart](docs/assets/workspace-screenshot.png)
 
-- frontend: React + Vite + TypeScript
-- backend: Django + Django Ninja + django-allauth
-- agent runtime: Agno + OpenAI
-- background jobs: Inngest
-- data store: PostgreSQL in Docker, SQLite or Postgres for local backend runs
+## Stack
+
+- **Frontend:** React 19, Vite 8, TypeScript, react-router-dom
+- **Backend:** Django 6, Django Ninja 1.6, django-allauth (headless Google OAuth)
+- **Agent runtime:** Agno + OpenAI (configurable via `AGNO_MODEL_ID`, defaults to `gpt-5-mini`)
+- **Background jobs:** Inngest
+- **Data store:** PostgreSQL in Docker, SQLite for local backend runs
+- **Quality tooling:** Black, mypy (163 source files checked), ESLint, Vitest
 
 ## How It Works
 
-At a high level, the frontend is a React SPA that talks to a Django backend over JSON APIs. The backend owns authentication, Google token storage, calendar sync, analytics queries, chat orchestration, and side-effect policy enforcement.
+The frontend is a React SPA that talks to a Django backend over JSON APIs. The backend owns authentication, Google token storage, calendar sync, analytics queries, chat orchestration, and side-effect policy enforcement.
 
 Calendar events are synced into the local database and become the source of truth for fast reads, analytics, and grounded assistant responses. The AI agent does not talk directly to Google from the browser. It runs server-side, inside a controlled loop, and can only act through registered backend tools.
 
@@ -55,21 +58,19 @@ flowchart TD
 
 ## Agent Flow
 
-The assistant follows a GAME loop:
+The assistant follows a GAME loop (Goal, Action, Memory, Environment):
 
-- Goal: interpret what the user is actually asking
-- Action: choose the next safe step
-- Memory: use conversation history, preferences, and prior tool outputs
-- Environment: inspect synced calendar state and registered backend tools
+- **Goal:** interpret what the user is actually asking
+- **Action:** choose the next safe step
+- **Memory:** use conversation history, preferences, and prior tool outputs
+- **Environment:** inspect synced calendar state and registered backend tools
 
-The important product constraint is that the agent is backend-controlled. It cannot freely mutate state. It must either:
+The agent is backend-controlled. It cannot freely mutate state. It must either:
 
 - answer with text
 - ask a clarification
 - return structured blocks like `action_card`, `email_draft`, or `chart`
 - call a registered backend tool to ground the next answer
-
-## GAME Loop Diagram
 
 ```mermaid
 flowchart TD
@@ -86,27 +87,49 @@ flowchart TD
     T --> M
 ```
 
-## Feature Areas
+## Key Design Decisions
 
-- Calendar workspace: weekly calendar view, synced events, event details
-- Chat workspace: structured assistant responses, action cards, drafts, analytics blocks
-- Preferences: execution mode, blocked times, temporary blocked times
-- Analytics dashboard: saved insight cards with refresh/delete
+| Decision | Rationale |
+|----------|-----------|
+| **Session auth over JWT** | Calendar workspace is a single-domain SPA. HTTP-only session cookies are simpler, avoid token refresh complexity, and are harder to exfiltrate via XSS than localStorage JWTs. |
+| **Synced local event store** | Querying Google Calendar on every chat turn would be slow and quota-expensive. Local sync gives fast reads, enables analytics, and decouples the agent from Google API latency. |
+| **Polling over SSE for chat turns** | Simpler to implement, debug, and deploy behind any reverse proxy. SSE is a planned extension point but not needed for the current synchronous turn model. |
+| **Agno as LLM orchestration layer** | Provides structured output parsing, session state management, and a clean provider abstraction without building a custom SDK integration from scratch. |
+| **Approval-gated mutations** | Calendar changes and email sends must be explicit and reversible. The agent proposes, the user confirms. Execution mode controls how aggressive the gating is. |
+| **BFF pattern** | Frontend-facing API contracts live in `bff/`, composed from internal domain services. This keeps internal domain shapes from leaking into the frontend contract. |
+| **`core_agent` separated from `chat`** | The GAME loop, provider interfaces, and tool abstractions are product-agnostic. `chat` owns the conversational use case; `core_agent` is reusable infrastructure. |
 
 ## Structured Message Blocks
 
-Assistant responses are stored as ordered content blocks, not just plain text.
+Assistant responses are stored as ordered content blocks, not plain text.
 
-Current block types include:
-
-- `text`
-- `clarification`
-- `status`
-- `action_card`
-- `email_draft`
-- `chart`
+| Block type | Purpose |
+|------------|---------|
+| `text` | Natural language response |
+| `clarification` | Follow-up question to the user |
+| `status` | Processing indicator (e.g. "Thinking...") |
+| `action_card` | Approval-gated calendar mutation proposal |
+| `email_draft` | Draft email preview with copy/block actions |
+| `chart` | Bar, line, pie, or heatmap analytics visualization |
 
 This is what allows the UI to mix natural language with structured cards and charts in one response.
+
+## Test Coverage
+
+The backend has **228 tests** across all 8 application domains:
+
+- **Router tests:** authentication enforcement, cross-user access prevention, response contract validation
+- **Service tests:** calendar sync workflows, preference normalization, session lifecycle, message credit limits
+- **Agent tests:** GAME loop iteration, tool execution and schema validation, structured output coercion, eval snapshot verification
+- **Model tests:** constraint enforcement, enum behavior, default safety checks
+
+Quality gates enforced via `make backend-quality`:
+
+- **Black:** formatting (252 files)
+- **mypy:** static type checking (163 source files, zero errors)
+- **Django system check:** configuration validation
+
+Frontend tests cover calendar layout math, week navigation, settings rendering, chat session switching, message parsing, email draft extraction, and blocked time utilities.
 
 ## Repository Layout
 
@@ -114,25 +137,31 @@ This is what allows the UI to mix natural language with structured cards and cha
 backend/
   config/
   apps/
-    accounts/
-    analytics/
-    bff/
-    calendars/
-    chat/
-    core/
-    core_agent/
-    preferences/
+    accounts/       # user profile, auth integration, Google OAuth credentials
+    analytics/      # read-only calendar analytics + saved insights
+    bff/            # backend-for-frontend API contracts
+    calendars/      # calendar sync, event queries, Google Calendar integration
+    chat/           # sessions, messages, agent orchestration, content blocks
+    core/           # shared platform: auth, types, exceptions
+    core_agent/     # reusable agent runtime: GAME loop, providers, tools
+    preferences/    # execution mode, blocked times, rate limits
 
 frontend/
   src/
+    app/            # router, layout, shell hooks, shared components
+    components/     # shared UI components (UpgradeNotice)
     features/
-      analytics/
-      calendar/
-      chat/
-      settings/
+      analytics/    # dashboard page, saved insight cards
+      auth/         # login page, auth error page, auth API client
+      calendar/     # weekly view, event details, sync indicator, blocked overlays
+      chat/         # message list, composer, action cards, email drafts, charts
+      settings/     # preferences, execution mode, blocked time management
+    shared/         # utility library (cookies)
 
 docs/
   architecture-blueprint.md
+  design-theme.md
+  google-oauth-setup.md
 ```
 
 ## Local Setup
@@ -140,15 +169,15 @@ docs/
 There are two practical ways to run the app:
 
 1. Docker for the full stack
-2. local backend/frontend processes for faster iteration
+2. Local backend/frontend processes for faster iteration
 
 ### Prerequisites
 
 - Node 20
 - Python 3.12
 - Docker Desktop
-- a Google Cloud OAuth client
-- an OpenAI API key
+- A Google Cloud OAuth client
+- An OpenAI API key
 
 
 ### Option 1: Run With Docker
@@ -187,14 +216,21 @@ make up
 - backend: [http://localhost:8002](http://localhost:8002)
 - Inngest dev UI: [http://localhost:8388](http://localhost:8388)
 
-Useful commands:
+Useful Docker commands:
 
 ```bash
-make logs
-make backend-logs
-make frontend-logs
-make down
+make logs              # stream frontend + backend logs
+make backend-logs      # stream backend logs only
+make frontend-logs     # stream frontend logs only
+make db-logs           # stream database logs
+make down              # stop all containers
+make restart           # rebuild and restart
+make docker-shell      # shell into backend container
+make docker-migrate    # run migrations inside container
+make docker-test       # run backend tests inside container
 ```
+
+Note: Docker Compose maps Postgres to host port `5434` to avoid conflicts with a local Postgres on `5432`. Inside the Docker network, the database is still reachable at `db:5432`.
 
 ### Option 2: Run Locally Without Docker
 
@@ -229,8 +265,8 @@ POSTGRES_ENABLED=false
 
 ```env
 POSTGRES_ENABLED=true
-POSTGRES_HOST=db
-POSTGRES_PORT=5432
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5434
 ```
 
 5. Run migrations and start the server:
@@ -270,7 +306,7 @@ npm run dev -- --host 0.0.0.0 --port 3002
 
 ## Google OAuth Setup
 
-Detailed instructions live in [docs/google-oauth-setup.md](/Users/uzomaemuchay/DEVELOPMENT/tenex_co_cal_app/docs/google-oauth-setup.md).
+Detailed instructions live in [docs/google-oauth-setup.md](docs/google-oauth-setup.md).
 
 For local development with Docker, register these:
 
@@ -328,8 +364,9 @@ After signing in with a test Google account:
 ### Backend
 
 ```bash
-make check
-make test
+make test              # run all 228 backend tests
+make backend-quality   # format check + typecheck + Django system check
+make backend-eval-test # run agent eval snapshot tests
 ```
 
 ### Frontend
@@ -340,43 +377,68 @@ make frontend-lint
 make frontend-build
 ```
 
-### Make Targets
+### All Make Targets
 
 ```bash
-make backend-install
-make backend-install-dev
-make migrate
-make runserver
-make check
-make test
-make test-all
-make frontend-test
-make frontend-lint
-make frontend-build
-make up
-make logs
-make down
+# Backend
+make backend-install       # install production dependencies
+make backend-install-dev   # install dev dependencies (black, mypy, stubs)
+make makemigrations        # generate new Django migrations
+make migrate               # apply migrations
+make runserver             # start Django dev server
+make runserver-debug       # start with LOG_LEVEL=DEBUG
+make check                 # Django system check
+make test                  # run backend test suites
+make backend-format        # auto-format with Black
+make backend-format-check  # check formatting without changes
+make backend-typecheck     # run mypy type checks
+make backend-quality       # format-check + typecheck + system check
+make backend-eval-test     # run agent eval snapshot tests
+
+# Frontend
+make frontend-test         # run Vitest tests
+make frontend-lint         # run ESLint
+make frontend-build        # production build
+
+# Combined
+make test-all              # backend tests + frontend tests
+
+# Docker
+make up                    # build and start all containers
+make down                  # stop all containers
+make restart               # rebuild and restart
+make logs                  # stream frontend + backend logs
+make backend-logs          # stream backend logs
+make frontend-logs         # stream frontend logs
+make db-logs               # stream database logs
+make docker-build          # build backend + frontend images
+make docker-shell          # shell into backend container
+make frontend-shell        # shell into frontend container
+make docker-migrate        # run migrations inside container
+make docker-test           # run backend tests inside container
+make createsuper           # create Django superuser inside container
 ```
 
-## Current Design Principles
+## Design Principles
 
-The implementation is guided by the docs in [`docs/`](/Users/uzomaemuchay/DEVELOPMENT/tenex_co_cal_app/docs):
+- Draft-first and approval-gated execution
+- Server-side policy enforcement independent of frontend behavior
+- Thin routers, service-oriented backend orchestration
+- Structured assistant blocks instead of opaque text
+- Analytics through a constrained, allowlisted read-only query layer
+- Encrypted token storage; the browser never touches Google credentials
+- The agent operates through backend-registered tools and product-specific safety rules
 
-- draft-first and approval-gated execution
-- server-side policy enforcement
-- thin routers, service-oriented backend orchestration
-- structured assistant blocks instead of opaque text
-- analytics through a constrained read-only query layer
+## What I Would Build Next
 
-## Important Notes
-
-- The browser never receives Google OAuth tokens directly.
-- Calendar and Gmail actions are server-managed.
-- The agent is not free-form autonomous. It operates through backend-registered tools and product-specific safety rules.
-- The analytics layer is intentionally narrow and allowlisted.
+- **SSE streaming** for assistant responses instead of polling, enabling token-by-token rendering
+- **Real Gmail send** integration behind the existing email draft flow (the draft block is built, the send action is gated but not yet wired)
+- **Multi-calendar support** (the UI scaffold exists with the Calendar Scope section, backend currently scopes to primary)
+- **Webhook-driven incremental sync** to replace periodic polling (the `Calendar.webhook_*` fields and `CalendarWebhookSyncService` are in place but need a public endpoint with verified domain)
+- **CI pipeline** with GitHub Actions running `make backend-quality` and `make test-all` on every push
+- **Rate limiting middleware** at the API layer rather than only at the chat credit level
 
 ## Further Reading
-- [architecture-blueprint.md](/Users/uzomaemuchay/DEVELOPMENT/tenex_co_cal_app/docs/architecture-blueprint.md)
-- [backend-implementation-guidelines.md](/Users/uzomaemuchay/DEVELOPMENT/tenex_co_cal_app/docs/backend-implementation-guidelines.md)
-- [frontend-implementation-guidelines.md](/Users/uzomaemuchay/DEVELOPMENT/tenex_co_cal_app/docs/frontend-implementation-guidelines.md)
-- [google-oauth-setup.md](/Users/uzomaemuchay/DEVELOPMENT/tenex_co_cal_app/docs/google-oauth-setup.md)
+- [docs/architecture-blueprint.md](docs/architecture-blueprint.md)
+- [docs/google-oauth-setup.md](docs/google-oauth-setup.md)
+- [docs/design-theme.md](docs/design-theme.md)

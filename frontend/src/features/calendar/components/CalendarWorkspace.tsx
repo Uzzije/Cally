@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react'
 
 import { WorkspacePageHeader } from '../../../app/layout/WorkspacePageHeader'
 import { WorkspaceTopbar } from '../../../app/layout/WorkspaceTopbar'
-import { UpgradeNotice } from '../../../components/UpgradeNotice'
 import { logoutUser } from '../../auth/api/authClient'
 import type { AuthSession } from '../../auth/types'
 import type { MessageCreditStatus } from '../../chat/types'
@@ -38,47 +37,6 @@ import {
 } from '../../chat/utils/emailDraft'
 import { getCookie } from '../../../shared/lib/cookies'
 
-
-const MULTI_CALENDAR_UPGRADE_LABEL =
-  'Multi-calendar scope is part of an upgrade feature and is disabled for now.'
-
-function CalendarScopeUpgradeCard() {
-  return (
-    <section aria-label="Calendar scope upgrade" className="calendar-scope-upgrade-card">
-      <div className="calendar-scope-upgrade-copy">
-        <p className="eyebrow">Calendar Scope</p>
-        <h3>Multi-calendar selection</h3>
-        <p>{MULTI_CALENDAR_UPGRADE_LABEL}</p>
-      </div>
-
-      <fieldset className="calendar-scope-upgrade-list" disabled>
-        <legend className="sr-only">Calendar scope selection</legend>
-        <label className="calendar-scope-option is-checked">
-          <input checked disabled name="calendar-scope-primary" type="checkbox" />
-          <span className="calendar-scope-option-copy">
-            <strong>Primary calendar</strong>
-            <span>Current workspace and assistant scope</span>
-          </span>
-        </label>
-        <label className="calendar-scope-option">
-          <input disabled name="calendar-scope-team" type="checkbox" />
-          <span className="calendar-scope-option-copy">
-            <strong>Team calendar</strong>
-            <span>Upgrade feature preview</span>
-          </span>
-        </label>
-        <label className="calendar-scope-option">
-          <input disabled name="calendar-scope-personal" type="checkbox" />
-          <span className="calendar-scope-option-copy">
-            <strong>Personal calendar</strong>
-            <span>Upgrade feature preview</span>
-          </span>
-        </label>
-      </fieldset>
-    </section>
-  )
-}
-
 type CalendarWorkspaceProps = {
   messageCredits: MessageCreditStatus | null
   session: AuthSession
@@ -110,7 +68,6 @@ export function CalendarWorkspace({
   const [displayTimezone, setDisplayTimezone] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [isChatExpanded, setIsChatExpanded] = useState(false)
-  const [isCalendarScopeVisible, setIsCalendarScopeVisible] = useState(false)
 
   const refreshCalendarWorkspace = async () => {
     const nextSyncStatus = await fetchCalendarSyncStatus()
@@ -365,32 +322,6 @@ export function CalendarWorkspace({
                 {preferencesError ? (
                   <p className="calendar-preferences-note">{preferencesError}</p>
                 ) : null}
-                <section className="calendar-scope-section">
-                  <div className="calendar-scope-section-header">
-                    <div className="calendar-scope-section-copy">
-                      <p className="eyebrow">Calendar Scope</p>
-                    </div>
-                    <button
-                      aria-controls="calendar-scope-content"
-                      aria-expanded={isCalendarScopeVisible}
-                      className="secondary-button button-sm"
-                      onClick={() => setIsCalendarScopeVisible((current) => !current)}
-                      type="button"
-                    >
-                      {isCalendarScopeVisible ? 'Hide section' : 'Show section'}
-                    </button>
-                  </div>
-
-                  {isCalendarScopeVisible ? (
-                    <div className="calendar-scope-section-content" id="calendar-scope-content">
-                      <CalendarScopeUpgradeCard />
-                      <UpgradeNotice
-                        body="Workspace and assistant currently stay scoped to your synced primary calendar until the upgrade is enabled."
-                        title="Current active scope"
-                      />
-                    </div>
-                  ) : null}
-                </section>
               </section>
 
               <section className="paper-panel calendar-board">
@@ -434,7 +365,6 @@ export function CalendarWorkspace({
                 isOpen={isChatExpanded}
                 isPreferencesLoading={isPreferencesLoading}
                 onRefreshMessageCredits={onRefreshMessageCredits}
-                scopeNotice="Assistant replies and suggested actions currently use your synced primary calendar only."
                 onBlockSuggestedTimes={handleBlockSuggestedTimes}
                 onCopyEmailDraft={handleCopyEmailDraft}
                 onProposalExecuted={refreshCalendarWorkspace}

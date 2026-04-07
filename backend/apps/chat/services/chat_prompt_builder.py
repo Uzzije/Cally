@@ -4,7 +4,7 @@ from apps.chat.services.chat_execution_mode_profile_service import ChatExecution
 
 
 class ChatPromptBuilder:
-    prompt_version = "release10-v1"
+    prompt_version = "release10-v2"
 
     def build_system_prompt(self, *, profile: ChatExecutionModeProfile) -> str:
         return "\n\n".join(
@@ -77,6 +77,12 @@ class ChatPromptBuilder:
                 "  specific proposed time.",
                 "- Do not ask for optional extras after the request is already grounded enough",
                 "  for the active execution mode to proceed.",
+                "- When you ask more than one clarification in the same reply, format them",
+                "  as a short intro followed by a vertically spaced numbered list.",
+                "- Keep each clarification question on its own line with a blank line between",
+                "  items when helpful for readability.",
+                "- Use short option lists on their own lines, not dense inline paragraphs.",
+                "- Never compress multiple clarification questions into one wall-of-text sentence.",
             ]
         )
 

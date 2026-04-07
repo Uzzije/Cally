@@ -120,6 +120,18 @@ class ChatAssistantTurnServiceTests(TestCase):
             request.system_prompt,
         )
         self.assertIn(
+            "format them",
+            request.system_prompt,
+        )
+        self.assertIn(
+            "vertically spaced numbered list",
+            request.system_prompt,
+        )
+        self.assertIn(
+            "Never compress multiple clarification questions into one wall-of-text sentence.",
+            request.system_prompt,
+        )
+        self.assertIn(
             "finish with one reviewable action_card instead of asking for optional extras",
             request.system_prompt,
         )

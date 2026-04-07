@@ -227,31 +227,12 @@ describe('Calendar workspace', () => {
     expect(await screen.findByLabelText(/ai message usage/i)).toBeInTheDocument()
     expect(screen.getByText(/^ai messages$/i)).toBeInTheDocument()
     expect(screen.getByText(/^10 \/ 10$/i)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /show section/i })).toBeInTheDocument()
-    expect(
-      screen.queryByText(/multi-calendar scope is part of an upgrade feature and is disabled for now/i),
-    ).not.toBeInTheDocument()
-
-    await userEvent.click(screen.getByRole('button', { name: /show section/i }))
-    expect(
-      await screen.findByText(/multi-calendar scope is part of an upgrade feature and is disabled for now/i),
-    ).toBeInTheDocument()
-    expect(screen.getByRole('checkbox', { name: /primary calendar/i })).toBeDisabled()
-    expect(screen.getByRole('checkbox', { name: /team calendar/i })).toBeDisabled()
-
-    await userEvent.click(screen.getByRole('button', { name: /hide section/i }))
-    expect(
-      screen.queryByText(/multi-calendar scope is part of an upgrade feature and is disabled for now/i),
-    ).not.toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: /open ask cally/i }))
     expect(screen.getByRole('button', { name: /close ask cally/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /close ai chat/i })).toBeInTheDocument()
     expect(document.querySelector('.calendar-workspace')).toHaveClass('is-chat-expanded')
     expect(await screen.findByText(/chat timezone: america\/new_york/i)).toBeInTheDocument()
-    expect(
-      screen.getByText(/assistant replies and suggested actions currently use your synced primary calendar only/i),
-    ).toBeInTheDocument()
 
     await userEvent.hover(screen.getByLabelText(/ai message usage/i))
     expect(

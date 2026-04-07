@@ -21,24 +21,9 @@ import { ChatComposer } from './ChatComposer'
 import { ChatSessionSwitcher } from './ChatSessionSwitcher'
 import { ChatStatusLine } from './ChatStatusLine'
 import { MessageList } from './MessageList'
-import { UpgradeNotice } from '../../../components/UpgradeNotice'
 
 
 const CHAT_TURN_POLL_INTERVAL_MS = 3000
-
-function UpgradeScopeNotice({
-  title,
-  body,
-  compact = false,
-}: {
-  title: string
-  body: string
-  compact?: boolean
-}) {
-  return (
-    <UpgradeNotice body={body} compact={compact} title={title} />
-  )
-}
 
 type ChatWorkspaceProps = {
   activeTimeZone: string
@@ -47,7 +32,6 @@ type ChatWorkspaceProps = {
   isOpen: boolean
   isPreferencesLoading: boolean
   onRefreshMessageCredits: () => Promise<void>
-  scopeNotice: string
   onBlockSuggestedTimes: (block: EmailDraftBlock) => void
   onCopyEmailDraft: (block: EmailDraftBlock) => Promise<void>
   onProposalExecuted: () => Promise<void>
@@ -60,7 +44,6 @@ export function ChatWorkspace({
   isOpen,
   isPreferencesLoading,
   onRefreshMessageCredits,
-  scopeNotice,
   onBlockSuggestedTimes,
   onCopyEmailDraft,
   onProposalExecuted,
@@ -544,8 +527,6 @@ export function ChatWorkspace({
         </p>
         <p className="chat-panel-timezone">Chat timezone: {activeTimeZone}</p>
       </header>
-
-      <UpgradeScopeNotice compact body={scopeNotice} title="Assistant scope" />
 
       <ChatSessionSwitcher
         activeSessionId={activeSessionId}
