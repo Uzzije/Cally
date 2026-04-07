@@ -3,6 +3,7 @@ import logging
 from django.contrib.auth import logout
 from django.http import JsonResponse
 from django.views.decorators.csrf import ensure_csrf_cookie
+from django_ratelimit.decorators import ratelimit
 from ninja import Router
 
 from apps.core.api.auth import session_auth
@@ -70,6 +71,7 @@ def complete_onboarding(request):
 
 
 @router.post("delete-account")
+@ratelimit(key="user_or_ip", rate="3/m", method=ratelimit.ALL, block=True)
 def delete_authenticated_user(request):
     user = request.user
     user_id = user.id

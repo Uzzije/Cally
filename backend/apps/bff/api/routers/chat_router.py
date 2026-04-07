@@ -1,5 +1,6 @@
 import logging
 
+from django_ratelimit.decorators import ratelimit
 from ninja import Router
 
 from apps.core.api.auth import session_auth
@@ -145,6 +146,7 @@ def get_chat_messages(request, session_id: int):
         429: ErrorResponseSchema,
     },
 )
+@ratelimit(key="user_or_ip", rate="5/m", method=ratelimit.ALL, block=True)
 def post_chat_message(request, session_id: int, payload: ChatSubmitMessageRequestSchema):
     session_service = ChatSessionService()
     session = session_service.get_user_session(request.user, session_id=session_id)
@@ -222,6 +224,7 @@ def get_action_proposal(request, session_id: int, proposal_id: str):
         409: ErrorResponseSchema,
     },
 )
+@ratelimit(key="user_or_ip", rate="10/m", method=ratelimit.ALL, block=True)
 def approve_action_proposal(request, session_id: int, proposal_id: str):
     try:
         proposal = ChatActionProposalService().approve_proposal(
@@ -246,6 +249,7 @@ def approve_action_proposal(request, session_id: int, proposal_id: str):
         409: ErrorResponseSchema,
     },
 )
+@ratelimit(key="user_or_ip", rate="10/m", method=ratelimit.ALL, block=True)
 def reject_action_proposal(request, session_id: int, proposal_id: str):
     try:
         proposal = ChatActionProposalService().reject_proposal(

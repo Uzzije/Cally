@@ -12,8 +12,8 @@ type UpgradeNoticeProps = {
 export function UpgradeNotice({
   title,
   body,
-  eyebrow = 'Upgrade Preview',
-  statusLabel = 'Disabled for now',
+  eyebrow = 'Coming Soon',
+  statusLabel = 'Coming soon',
   compact = false,
   className = '',
   ctaLabel,
@@ -34,7 +34,7 @@ export function UpgradeNotice({
           {ctaLabel}
         </button>
       ) : (
-        <span className="upgrade-pill" aria-label="Disabled upgrade feature">
+        <span className="upgrade-pill" aria-label="Coming soon feature">
           {statusLabel}
         </span>
       )}
@@ -67,7 +67,7 @@ export function ComingSoonDialog({
         role="dialog"
       >
         <button
-          aria-label="Close upgrade notice"
+          aria-label="Close coming soon notice"
           className="secondary-button button-sm event-modal-close"
           onClick={onClose}
           type="button"

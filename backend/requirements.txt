@@ -2,6 +2,7 @@ Django==6.0.3
 django-ninja==1.6.2
 django-allauth[headless]==65.15.1
 django-cors-headers==4.9.0
+django-ratelimit==4.1.0
 inngest==0.5.18
 requests==2.33.1
 psycopg[binary]==3.3.3

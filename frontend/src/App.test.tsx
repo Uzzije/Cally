@@ -26,12 +26,13 @@ function buildAuthenticatedSessionResponse() {
   })
 }
 
-function buildReadySyncStatusResponse() {
+function buildReadySyncStatusResponse(overrides?: Record<string, unknown>) {
   return jsonResponse({
     has_calendar: true,
     sync_state: 'ready',
     last_synced_at: '2026-04-04T14:30:00Z',
     is_stale: false,
+    ...overrides,
   })
 }
 
@@ -244,6 +245,86 @@ describe('Calendar workspace', () => {
     expect(screen.getByRole('dialog', { name: /event details/i })).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: /close event details/i }))
     expect(screen.queryByRole('dialog', { name: /event details/i })).not.toBeInTheDocument()
+  })
+
+  it('shows the last sync time instead of freshness banner copy', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input)
+
+        if (url.endsWith('/api/v1/auth/csrf')) {
+          return jsonResponse({ success: true })
+        }
+
+        if (url.endsWith('/api/v1/auth/me')) {
+          return buildAuthenticatedSessionResponse()
+        }
+
+        if (url.endsWith('/api/v1/chat/credits')) {
+          return buildChatCreditsResponse()
+        }
+
+        if (url.endsWith('/api/v1/settings/preferences')) {
+          return buildPreferencesResponse({ display_timezone: 'America/New_York' })
+        }
+
+        if (url.endsWith('/api/v1/calendar/sync-status')) {
+          return buildReadySyncStatusResponse({
+            sync_state: 'stale',
+            is_stale: true,
+          })
+        }
+
+        if (url.includes('/api/v1/calendar/events?')) {
+          return jsonResponse({
+            calendar: {
+              id: 1,
+              name: 'Primary',
+              is_primary: true,
+              last_synced_at: '2026-04-04T14:30:00Z',
+            },
+            events: [],
+          })
+        }
+
+        if (url.endsWith('/api/v1/chat/sessions')) {
+          return jsonResponse({
+            sessions: [
+              {
+                id: 1,
+                title: 'Tomorrow planning',
+                updated_at: '2026-04-05T15:00:00Z',
+              },
+            ],
+          })
+        }
+
+        if (url.endsWith('/api/v1/chat/sessions/1/messages')) {
+          return jsonResponse({
+            session: {
+              id: 1,
+              title: 'Tomorrow planning',
+              updated_at: '2026-04-05T15:00:00Z',
+            },
+            messages: [],
+          })
+        }
+
+        return new Response('Not found', { status: 404 })
+      }),
+    )
+
+    render(
+      <MemoryRouter>
+        <App />
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByText(/last synced: apr 4, 10:30 am/i)).toBeInTheDocument()
+    expect(
+      screen.queryByText(/data is visible, but freshness may be lagging/i),
+    ).not.toBeInTheDocument()
   })
 
   it('requests a new event range when navigating to the next week', async () => {
@@ -1914,7 +1995,7 @@ describe('Calendar workspace', () => {
               current_count: 1,
               replaces_on_save: true,
               upgrade_message:
-                'Free plan saves one insight at a time. Upgrade to save more insights and organize them better.',
+                'You can save one insight for now. Support for keeping more saved insights is coming soon.',
             },
           })
         }

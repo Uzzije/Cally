@@ -277,6 +277,11 @@ export function CalendarWorkspace({
                     <p className="eyebrow">Weekly View</p>
                     <h2>{formatWeekRange(visibleWeekStart)}</h2>
                     <p className="calendar-timezone-label">Timezone: {activeTimeZone}</p>
+                    <SyncStatusIndicator
+                      isLoading={isCalendarLoading}
+                      syncStatus={syncStatus}
+                      timeZone={activeTimeZone}
+                    />
                   </div>
                   <div className="calendar-toolbar-actions">
                     <label className="calendar-week-picker" htmlFor="calendar-week-select">
@@ -315,9 +320,6 @@ export function CalendarWorkspace({
                       {isSyncing ? 'Syncing…' : 'Sync Calendar'}
                     </button>
                   </div>
-                </div>
-                <div className="calendar-toolbar-status">
-                  <SyncStatusIndicator syncStatus={syncStatus} isLoading={isCalendarLoading} />
                 </div>
                 {preferencesError ? (
                   <p className="calendar-preferences-note">{preferencesError}</p>

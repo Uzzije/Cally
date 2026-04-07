@@ -1,4 +1,5 @@
 from django.utils.dateparse import parse_datetime
+from django_ratelimit.decorators import ratelimit
 from ninja import Router
 
 from apps.core.api.auth import session_auth
@@ -96,6 +97,7 @@ def get_calendar_sync_status(request):
     "sync",
     response={200: CalendarSyncResponseSchema, 401: ErrorResponseSchema, 503: ErrorResponseSchema},
 )
+@ratelimit(key="user_or_ip", rate="5/m", method=ratelimit.ALL, block=True)
 def sync_calendar(request):
     try:
         event_ids = CalendarSyncTriggerService().request_primary_calendar_sync(request.user)

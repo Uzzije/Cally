@@ -35,7 +35,8 @@ const samplePolicy = {
   max_saved_insights: 1,
   current_count: 1,
   replaces_on_save: true,
-  upgrade_message: 'Free plan saves one insight at a time. Upgrade to save more insights and organize them better.',
+  upgrade_message:
+    'You can save one insight for now. Support for keeping more saved insights is coming soon.',
 }
 
 describe('AnalyticsDashboardPage', () => {
@@ -126,16 +127,20 @@ describe('AnalyticsDashboardPage', () => {
     expect(screen.queryByText(/you have 6\.0 hours of meetings/i)).not.toBeInTheDocument()
   })
 
-  it('shows a friendly upgrade note when only one saved insight is available', async () => {
+  it('shows a coming-soon note when only one saved insight is available', async () => {
     analyticsClient.fetchSavedInsights.mockResolvedValue({ items: [sampleInsight], policy: samplePolicy })
 
     render(<AnalyticsDashboardPage csrfToken="csrf-token" />)
 
-    expect(await screen.findByText(/upgrade to save more insights/i)).toBeInTheDocument()
-    expect(screen.getByText(/organize them better/i)).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: /ask about upgrading/i }))
-    expect(await screen.findByRole('dialog', { name: /upgrade coming soon/i })).toBeInTheDocument()
+    expect(await screen.findByText(/more saved insights are coming soon/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/support for keeping more saved insights is coming soon/i),
+    ).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /see what's coming/i }))
+    expect(
+      await screen.findByRole('dialog', { name: /saved insights update coming soon/i }),
+    ).toBeInTheDocument()
     expect(screen.getByText(/^coming soon$/i)).toBeInTheDocument()
-    expect(screen.getByText(/expanded saved insights/i)).toBeInTheDocument()
+    expect(screen.getByText(/more saved insights/i)).toBeInTheDocument()
   })
 })

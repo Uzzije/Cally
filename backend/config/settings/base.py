@@ -135,6 +135,7 @@ MIDDLEWARE = [
     "allauth.account.middleware.AccountMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "django_ratelimit.middleware.RatelimitMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -192,6 +193,16 @@ AUTH_PASSWORD_VALIDATORS = [
         "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
     },
 ]
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "rate-limit",
+    }
+}
+
+RATELIMIT_USE_CACHE = "default"
+RATELIMIT_VIEW = "apps.core.api.rate_limit.rate_limited_response"
 
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = get_env("DJANGO_TIME_ZONE", "UTC")

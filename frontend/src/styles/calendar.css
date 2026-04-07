@@ -79,6 +79,13 @@
   text-transform: uppercase;
 }
 
+.calendar-sync-meta {
+  margin-top: 2px;
+  color: #736b63;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
 .calendar-week-picker {
   display: flex;
   align-items: center;
@@ -103,11 +110,6 @@
   color: var(--text);
   font-size: 0.875rem;
   font-family: var(--font-body);
-}
-
-.calendar-toolbar-status {
-  display: flex;
-  justify-content: flex-start;
 }
 
 .calendar-grid-viewport {
