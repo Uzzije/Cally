@@ -16,15 +16,15 @@ It lets a signed-in user:
 ## Stack
 
 - **Frontend:** React 19, Vite 8, TypeScript, react-router-dom
-- **Backend:** Django 6, Django Ninja 1.6, django-allauth (headless Google OAuth)
+- **Backend:** Django 6, Django Ninja 1.6, django-allauth (headless Google OAuth), django-ratelimit
 - **Agent runtime:** Agno + OpenAI (configurable via `AGNO_MODEL_ID`, defaults to `gpt-5-mini`)
 - **Background jobs:** Inngest
 - **Data store:** PostgreSQL in Docker, SQLite for local backend runs
-- **Quality tooling:** Black, mypy (163 source files checked), ESLint, Vitest
+- **Quality tooling:** Black, mypy (165 source files checked), ESLint, Vitest
 
 ## How It Works
 
-The frontend is a React SPA that talks to a Django backend over JSON APIs. The backend owns authentication, Google token storage, calendar sync, analytics queries, chat orchestration, and side-effect policy enforcement.
+The frontend is a React SPA that talks to a Django backend over JSON APIs. The backend owns authentication, Google token storage, calendar sync, analytics queries, chat orchestration, rate limiting, and side-effect policy enforcement.
 
 Calendar events are synced into the local database and become the source of truth for fast reads, analytics, and grounded assistant responses. The AI agent does not talk directly to Google from the browser. It runs server-side, inside a controlled loop, and can only act through registered backend tools.
 
@@ -33,7 +33,8 @@ Calendar events are synced into the local database and become the source of trut
 ```mermaid
 flowchart TD
     U["User"] --> FE["React SPA<br/>Calendar workspace<br/>Chat workspace<br/>Analytics dashboard"]
-    FE -->|JSON APIs + session cookies| BFF["Django + Django Ninja"]
+    FE -->|JSON APIs + session cookies| RL["Rate limiting<br/>django-ratelimit + middleware"]
+    RL --> BFF["Django + Django Ninja"]
 
     BFF --> AUTH["Accounts / Auth<br/>django-allauth + Google OAuth"]
     BFF --> CHAT["Chat domain<br/>sessions, messages, block rendering contracts"]
@@ -94,10 +95,11 @@ flowchart TD
 | **Session auth over JWT** | Calendar workspace is a single-domain SPA. HTTP-only session cookies are simpler, avoid token refresh complexity, and are harder to exfiltrate via XSS than localStorage JWTs. |
 | **Synced local event store** | Querying Google Calendar on every chat turn would be slow and quota-expensive. Local sync gives fast reads, enables analytics, and decouples the agent from Google API latency. |
 | **Polling over SSE for chat turns** | Simpler to implement, debug, and deploy behind any reverse proxy. SSE is a planned extension point but not needed for the current synchronous turn model. |
-| **Agno as LLM orchestration layer** | Provides structured output parsing, session state management, and a clean provider abstraction without building a custom SDK integration from scratch. |
+| **Agno as LLM orchestration layer** | Provides structured output parsing, session state management, and a clean provider abstraction without building a custom SDK integration from scratch. Also gives us the flexibility to swap in other model providers (Anthropic, Google, open-source) by changing the provider configuration rather than rewriting orchestration code. |
 | **Approval-gated mutations** | Calendar changes and email sends must be explicit and reversible. The agent proposes, the user confirms. Execution mode controls how aggressive the gating is. |
 | **BFF pattern** | Frontend-facing API contracts live in `bff/`, composed from internal domain services. This keeps internal domain shapes from leaking into the frontend contract. |
 | **`core_agent` separated from `chat`** | The GAME loop, provider interfaces, and tool abstractions are product-agnostic. `chat` owns the conversational use case; `core_agent` is reusable infrastructure. |
+| **Two-layer rate protection** | `django-ratelimit` decorators enforce per-endpoint burst limits at the HTTP layer (e.g. 5/min on chat messages, 5/min on calendar sync). The existing daily message credit system enforces business-level usage quotas at the service layer. Rate limiting fires first and blocks before any service logic runs. |
 
 ## Structured Message Blocks
 
@@ -116,17 +118,18 @@ This is what allows the UI to mix natural language with structured cards and cha
 
 ## Test Coverage
 
-The backend has **228 tests** across all 8 application domains:
+The backend has **237 tests** across all 8 application domains:
 
 - **Router tests:** authentication enforcement, cross-user access prevention, response contract validation
 - **Service tests:** calendar sync workflows, preference normalization, session lifecycle, message credit limits
 - **Agent tests:** GAME loop iteration, tool execution and schema validation, structured output coercion, eval snapshot verification
 - **Model tests:** constraint enforcement, enum behavior, default safety checks
+- **Rate limit tests:** 429 response contract, per-endpoint burst enforcement, middleware integration
 
 Quality gates enforced via `make backend-quality`:
 
-- **Black:** formatting (252 files)
-- **mypy:** static type checking (163 source files, zero errors)
+- **Black:** formatting (257 files)
+- **mypy:** static type checking (165 source files, zero errors)
 - **Django system check:** configuration validation
 
 Frontend tests cover calendar layout math, week navigation, settings rendering, chat session switching, message parsing, email draft extraction, and blocked time utilities.
@@ -142,7 +145,7 @@ backend/
     bff/            # backend-for-frontend API contracts
     calendars/      # calendar sync, event queries, Google Calendar integration
     chat/           # sessions, messages, agent orchestration, content blocks
-    core/           # shared platform: auth, types, exceptions
+    core/           # shared platform: auth, types, exceptions, rate limiting
     core_agent/     # reusable agent runtime: GAME loop, providers, tools
     preferences/    # execution mode, blocked times, rate limits
 
@@ -364,7 +367,7 @@ After signing in with a test Google account:
 ### Backend
 
 ```bash
-make test              # run all 228 backend tests
+make test              # run all 237 backend tests
 make backend-quality   # format check + typecheck + Django system check
 make backend-eval-test # run agent eval snapshot tests
 ```
@@ -423,6 +426,7 @@ make createsuper           # create Django superuser inside container
 
 - Draft-first and approval-gated execution
 - Server-side policy enforcement independent of frontend behavior
+- Per-endpoint rate limiting at the HTTP layer, daily usage quotas at the service layer
 - Thin routers, service-oriented backend orchestration
 - Structured assistant blocks instead of opaque text
 - Analytics through a constrained, allowlisted read-only query layer
@@ -436,7 +440,6 @@ make createsuper           # create Django superuser inside container
 - **Multi-calendar support** (the UI scaffold exists with the Calendar Scope section, backend currently scopes to primary)
 - **Webhook-driven incremental sync** to replace periodic polling (the `Calendar.webhook_*` fields and `CalendarWebhookSyncService` are in place but need a public endpoint with verified domain)
 - **CI pipeline** with GitHub Actions running `make backend-quality` and `make test-all` on every push
-- **Rate limiting middleware** at the API layer rather than only at the chat credit level
 
 ## Further Reading
 - [docs/architecture-blueprint.md](docs/architecture-blueprint.md)

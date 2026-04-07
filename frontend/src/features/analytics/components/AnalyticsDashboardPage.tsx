@@ -6,14 +6,27 @@ import {
   fetchSavedInsights,
   refreshSavedInsight,
 } from '../api/analyticsClient'
-import type { SavedInsight } from '../types'
+import type { SavedInsight, SavedInsightPolicy } from '../types'
 import { SavedInsightCard } from './SavedInsightCard'
+
+const SAVED_INSIGHTS_NOTICE = {
+  eyebrow: 'Coming Soon',
+  title: 'More saved insights are coming soon',
+  body: 'You can save one insight for now. Support for keeping more saved insights is coming soon.',
+  ctaLabel: "See What's Coming",
+} as const
+
+const SAVED_INSIGHTS_DIALOG = {
+  ariaLabel: 'Saved insights update coming soon',
+  title: 'More saved insights',
+  body: 'We are working on support for saving multiple insights and organizing them more easily.',
+} as const
 
 
 export function AnalyticsDashboardPage({ csrfToken }: { csrfToken: string }) {
   const [insights, setInsights] = useState<SavedInsight[]>([])
-  const [policyMessage, setPolicyMessage] = useState<string | null>(null)
-  const [showUpgradePopup, setShowUpgradePopup] = useState(false)
+  const [savedInsightPolicy, setSavedInsightPolicy] = useState<SavedInsightPolicy | null>(null)
+  const [showComingSoonPopup, setShowComingSoonPopup] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [activeInsightId, setActiveInsightId] = useState<string | null>(null)
@@ -31,7 +44,7 @@ export function AnalyticsDashboardPage({ csrfToken }: { csrfToken: string }) {
         const response = await fetchSavedInsights()
         if (!cancelled) {
           setInsights(response.items)
-          setPolicyMessage(response.policy.upgrade_message)
+          setSavedInsightPolicy(response.policy)
         }
       } catch (nextError) {
         if (!cancelled) {
@@ -130,14 +143,14 @@ export function AnalyticsDashboardPage({ csrfToken }: { csrfToken: string }) {
   return (
     <>
       {error ? <p className="error-text">{error}</p> : null}
-      {policyMessage ? (
+      {savedInsightPolicy?.replaces_on_save ? (
         <UpgradeNotice
-          body={policyMessage}
+          body={SAVED_INSIGHTS_NOTICE.body}
           className="analytics-upgrade-note paper-panel"
-          ctaLabel="Ask About Upgrading"
-          eyebrow="Upgrade"
-          title="Save more than one insight"
-          onCta={() => setShowUpgradePopup(true)}
+          ctaLabel={SAVED_INSIGHTS_NOTICE.ctaLabel}
+          eyebrow={SAVED_INSIGHTS_NOTICE.eyebrow}
+          title={SAVED_INSIGHTS_NOTICE.title}
+          onCta={() => setShowComingSoonPopup(true)}
         />
       ) : null}
       <section className="saved-insight-grid">
@@ -156,12 +169,12 @@ export function AnalyticsDashboardPage({ csrfToken }: { csrfToken: string }) {
           />
         ))}
       </section>
-      {showUpgradePopup ? (
+      {showComingSoonPopup ? (
         <ComingSoonDialog
-          ariaLabel="Upgrade coming soon"
-          body="Saving more insights and organizing them better is coming soon."
-          title="Expanded saved insights"
-          onClose={() => setShowUpgradePopup(false)}
+          ariaLabel={SAVED_INSIGHTS_DIALOG.ariaLabel}
+          body={SAVED_INSIGHTS_DIALOG.body}
+          title={SAVED_INSIGHTS_DIALOG.title}
+          onClose={() => setShowComingSoonPopup(false)}
         />
       ) : null}
     </>

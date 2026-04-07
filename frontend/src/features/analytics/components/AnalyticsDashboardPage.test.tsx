@@ -140,7 +140,7 @@ describe('AnalyticsDashboardPage', () => {
     expect(
       await screen.findByRole('dialog', { name: /saved insights update coming soon/i }),
     ).toBeInTheDocument()
-    expect(screen.getByText(/^coming soon$/i)).toBeInTheDocument()
-    expect(screen.getByText(/more saved insights/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/^coming soon$/i)).toHaveLength(2)
+    expect(screen.getByText(/organizing them more easily/i)).toBeInTheDocument()
   })
 })
