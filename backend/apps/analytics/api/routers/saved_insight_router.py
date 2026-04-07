@@ -1,5 +1,6 @@
 from ninja import Router
 
+from apps.core.api.auth import session_auth
 from apps.analytics.api.schemas.delete_saved_insight_response_schema import (
     DeleteSavedInsightResponseSchema,
 )
@@ -16,14 +17,7 @@ from apps.analytics.services.saved_insight_service import (
     SavedInsightValidationError,
 )
 
-router = Router(tags=["analytics"])
-
-
-def _require_authenticated_user(request):
-    if request.user.is_authenticated:
-        return None
-
-    return 401, {"detail": "Authentication credentials were not provided."}
+router = Router(tags=["analytics"], auth=session_auth)
 
 
 def _serialize_saved_insight(
@@ -54,10 +48,6 @@ def _serialize_policy(policy) -> SavedInsightPolicySchema:
     response={200: SavedInsightListResponseSchema, 401: ErrorResponseSchema},
 )
 def list_saved_insights(request):
-    auth_error = _require_authenticated_user(request)
-    if auth_error:
-        return auth_error
-
     service = SavedInsightService()
     insights = service.list_for_user(request.user)
     return SavedInsightListResponseSchema(
@@ -76,10 +66,6 @@ def list_saved_insights(request):
     },
 )
 def create_saved_insight(request, payload: SavedInsightRequestSchema):
-    auth_error = _require_authenticated_user(request)
-    if auth_error:
-        return auth_error
-
     try:
         result = SavedInsightService().save_from_message(
             user=request.user,
@@ -107,10 +93,6 @@ def create_saved_insight(request, payload: SavedInsightRequestSchema):
     },
 )
 def refresh_saved_insight(request, insight_id: str):
-    auth_error = _require_authenticated_user(request)
-    if auth_error:
-        return auth_error
-
     try:
         insight = SavedInsightService().refresh(user=request.user, public_id=insight_id)
     except SavedInsightNotFoundError as exc:
@@ -130,10 +112,6 @@ def refresh_saved_insight(request, insight_id: str):
     },
 )
 def delete_saved_insight(request, insight_id: str):
-    auth_error = _require_authenticated_user(request)
-    if auth_error:
-        return auth_error
-
     deleted = SavedInsightService().delete(user=request.user, public_id=insight_id)
     if not deleted:
         return 404, ErrorResponseSchema(detail="Saved insight not found.")

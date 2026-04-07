@@ -8,6 +8,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
 from apps.calendars.models.calendar import Calendar
+from apps.core.types import AuthenticatedUser
 from apps.calendars.models.event import Event
 from apps.calendars.services.google_calendar_client import (
     GoogleCalendarClient,
@@ -44,7 +45,7 @@ class CalendarEventMutationService:
         self.client = client or GoogleCalendarClient()
 
     def create_primary_calendar_event(
-        self, user, *, request: CalendarEventMutationRequest
+        self, user: AuthenticatedUser, *, request: CalendarEventMutationRequest
     ) -> CalendarEventMutationResult:
         start_time = parse_datetime(request.start_time)
         end_time = parse_datetime(request.end_time)

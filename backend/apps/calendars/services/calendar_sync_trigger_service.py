@@ -3,6 +3,7 @@ import logging
 import inngest
 
 from apps.calendars.inngest.client import inngest_client
+from apps.core.types import AuthenticatedUser
 
 logger = logging.getLogger(__name__)
 
@@ -11,7 +12,7 @@ class CalendarSyncTriggerService:
     def __init__(self, client: inngest.Inngest | None = None) -> None:
         self.client = client or inngest_client
 
-    def request_primary_calendar_sync(self, user) -> list[str]:
+    def request_primary_calendar_sync(self, user: AuthenticatedUser) -> list[str]:
         event = inngest.Event(
             name="calendar.sync.requested",
             data={

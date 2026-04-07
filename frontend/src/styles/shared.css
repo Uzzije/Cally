@@ -1,0 +1,173 @@
+.app-shell {
+  width: min(1120px, calc(100vw - 32px));
+  margin: 0 auto;
+  padding: 32px 0 48px;
+}
+
+.centered-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+}
+
+.hero-panel,
+.paper-panel {
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  box-shadow: var(--shadow);
+}
+
+.hero-panel {
+  width: min(720px, 100%);
+  padding: 56px;
+  display: grid;
+  gap: 20px;
+}
+
+.paper-panel {
+  padding: 28px;
+}
+
+.workspace-card {
+  min-height: 100%;
+}
+
+.card-heading {
+  display: grid;
+  gap: 8px;
+}
+
+.status-panel {
+  width: min(620px, 100%);
+  display: grid;
+  gap: 18px;
+}
+
+.stack-panel {
+  display: grid;
+  gap: 18px;
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: var(--font-size-caption);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.hero-copy {
+  max-width: 54ch;
+  font-size: var(--font-size-body);
+}
+
+.fine-print {
+  font-size: var(--font-size-caption);
+}
+
+.primary-link-button,
+.primary-button,
+.secondary-button,
+.danger-button,
+.google-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--button-height, var(--button-height-md));
+  padding: 0 var(--button-padding-x, var(--button-padding-x-md));
+  border-radius: var(--control-radius);
+  font-size: var(--button-font-size, var(--font-size-body));
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition:
+    transform 140ms ease,
+    background-color 140ms ease,
+    border-color 140ms ease;
+}
+
+.button-sm {
+  --button-height: var(--button-height-sm);
+  --button-padding-x: var(--button-padding-x-sm);
+}
+
+.button-md {
+  --button-height: var(--button-height-md);
+  --button-padding-x: var(--button-padding-x-md);
+}
+
+.button-lg {
+  --button-height: var(--button-height-lg);
+  --button-padding-x: var(--button-padding-x-lg);
+}
+
+.primary-link-button,
+.primary-button {
+  background: var(--accent);
+  color: #fffaf7;
+}
+
+.primary-link-button:hover,
+.primary-button:hover {
+  background: var(--accent-dark);
+  transform: translateY(-1px);
+}
+
+.secondary-button {
+  background: transparent;
+  border-color: var(--panel-border);
+  color: var(--text);
+}
+
+.secondary-button:hover {
+  background: var(--soft-accent);
+}
+
+.primary-button:disabled,
+.secondary-button:disabled,
+.danger-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.danger-button {
+  background: #8f2f2f;
+  border-color: #8f2f2f;
+  color: #fff6f5;
+}
+
+.danger-button:hover {
+  background: #772727;
+}
+
+.error-text {
+  margin: 0 0 16px;
+  color: var(--error);
+  font-weight: 600;
+  font-size: var(--font-size-body);
+}
+
+@media (max-width: 768px) {
+  .app-shell {
+    width: min(100vw - 20px, 100%);
+    padding: 20px 0 28px;
+  }
+
+  .hero-panel,
+  .paper-panel {
+    padding: 22px;
+  }
+}

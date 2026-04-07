@@ -9,6 +9,7 @@ from django.utils import timezone
 
 from apps.accounts.services.google_oauth_credential_service import GoogleOAuthCredentialService
 from apps.calendars.models.calendar import Calendar
+from apps.core.types import AuthenticatedUser
 from apps.calendars.models.event import Event
 from apps.calendars.services.calendar_watch_registration_service import (
     CalendarWatchRegistrationService,
@@ -43,7 +44,7 @@ class CalendarSyncService:
             watch_registration_service or CalendarWatchRegistrationService(client=self.client)
         )
 
-    def sync_primary_calendar(self, user) -> CalendarSyncResult:
+    def sync_primary_calendar(self, user: AuthenticatedUser) -> CalendarSyncResult:
         if not self.credential_service.has_credential(user):
             raise CalendarSyncError("Google account token is not available for calendar sync.")
 

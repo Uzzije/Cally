@@ -110,7 +110,6 @@ class AuthRouterTests(TestCase):
         response = self.client.post("/api/v1/auth/delete-account", HTTP_HOST="localhost")
 
         self.assertEqual(response.status_code, 401)
-        self.assertEqual(response.json(), {"success": False})
 
     def test_delete_account_deletes_user_and_clears_session(self):
         user = User.objects.create_user(

@@ -1,6 +1,7 @@
 from django.utils.dateparse import parse_datetime
 from ninja import Router
 
+from apps.core.api.auth import session_auth
 from apps.calendars.api.schemas.calendar_events_response_schema import CalendarEventsResponseSchema
 from apps.calendars.api.schemas.calendar_response_schema import CalendarResponseSchema
 from apps.calendars.api.schemas.calendar_sync_response_schema import CalendarSyncResponseSchema
@@ -19,14 +20,7 @@ from apps.calendars.services.calendar_webhook_sync_service import (
     CalendarWebhookSyncService,
 )
 
-router = Router(tags=["calendar"])
-
-
-def _require_authenticated_user(request):
-    if request.user.is_authenticated:
-        return None
-
-    return 401, {"detail": "Authentication credentials were not provided."}
+router = Router(tags=["calendar"], auth=session_auth)
 
 
 def _parse_range_value(raw_value: str):
@@ -42,10 +36,6 @@ def _parse_range_value(raw_value: str):
     },
 )
 def get_calendar_events(request, start: str, end: str):
-    auth_error = _require_authenticated_user(request)
-    if auth_error:
-        return auth_error
-
     start_dt = _parse_range_value(start)
     end_dt = _parse_range_value(end)
     if start_dt is None or end_dt is None:
@@ -93,10 +83,6 @@ def get_calendar_events(request, start: str, end: str):
     response={200: CalendarSyncStatusResponseSchema, 401: ErrorResponseSchema},
 )
 def get_calendar_sync_status(request):
-    auth_error = _require_authenticated_user(request)
-    if auth_error:
-        return auth_error
-
     sync_status = CalendarQueryService().get_sync_status(request.user)
     return CalendarSyncStatusResponseSchema(
         has_calendar=sync_status.has_calendar,
@@ -111,10 +97,6 @@ def get_calendar_sync_status(request):
     response={200: CalendarSyncResponseSchema, 401: ErrorResponseSchema, 503: ErrorResponseSchema},
 )
 def sync_calendar(request):
-    auth_error = _require_authenticated_user(request)
-    if auth_error:
-        return auth_error
-
     try:
         event_ids = CalendarSyncTriggerService().request_primary_calendar_sync(request.user)
     except Exception:  # noqa: BLE001
@@ -128,6 +110,7 @@ def sync_calendar(request):
 
 @router.post(
     "webhook/google",
+    auth=None,
     response={202: CalendarWebhookResponseSchema, 401: ErrorResponseSchema},
 )
 def google_calendar_webhook(request):

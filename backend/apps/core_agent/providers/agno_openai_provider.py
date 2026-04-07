@@ -3,8 +3,9 @@ from __future__ import annotations
 import json
 from typing import Any, Literal
 
+from agno.agent import Agent
+from agno.models.openai import OpenAIChat
 from django.conf import settings
-
 from pydantic import BaseModel, Field, model_validator
 
 from apps.core.exceptions import AppConfigurationError
@@ -97,16 +98,6 @@ class AgnoOpenAIProvider(AgentProvider):
     def run_step(self, request: AgentLoopStepRequest) -> AgentLoopStepResult:
         if not self.api_key:
             raise AppConfigurationError("OPENAI_API_KEY is required for Agno chat execution.")
-
-        try:
-            from agno.agent import Agent
-            from agno.models.openai import OpenAIChat
-        except (
-            ModuleNotFoundError
-        ) as exc:  # pragma: no cover - exercised via environment-dependent startup
-            raise AppConfigurationError(
-                "The agno package is required for Agno chat execution."
-            ) from exc
 
         model_id = self.model_id or self.default_model_id
         agent = Agent(

@@ -7,6 +7,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.chat.models.chat_rate_limit_config import ChatRateLimitConfig
+from apps.core.types import AuthenticatedUser
 from apps.chat.models.daily_message_credit_usage import DailyMessageCreditUsage
 
 logger = logging.getLogger(__name__)
@@ -35,7 +36,7 @@ class ChatMessageCreditService:
         )
         return config
 
-    def get_status(self, user) -> ChatMessageCreditStatus:
+    def get_status(self, user: AuthenticatedUser) -> ChatMessageCreditStatus:
         config = self.get_config()
         usage_date = timezone.localdate()
         used = (
@@ -52,7 +53,7 @@ class ChatMessageCreditService:
             usage_date=usage_date.isoformat(),
         )
 
-    def consume_credit(self, user) -> ChatMessageCreditStatus:
+    def consume_credit(self, user: AuthenticatedUser) -> ChatMessageCreditStatus:
         usage_date = timezone.localdate()
         config = self.get_config()
 

@@ -94,6 +94,34 @@ describe('Calendar workspace', () => {
     expect(signInLink.getAttribute('href')).toContain('/accounts/google/login/?process=login')
   })
 
+  it('renders the auth error route copy when sign-in fails', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input)
+
+        if (url.endsWith('/api/v1/auth/csrf')) {
+          return jsonResponse({ success: true })
+        }
+
+        if (url.endsWith('/api/v1/auth/me')) {
+          return jsonResponse({ authenticated: false, user: null })
+        }
+
+        return new Response('Not found', { status: 404 })
+      }),
+    )
+
+    render(
+      <MemoryRouter initialEntries={['/auth/error']}>
+        <App />
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByText(/we couldn't complete sign in/i)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /return to login/i })).toHaveAttribute('href', '/')
+  })
+
   it('renders the authenticated calendar and chat workspace', async () => {
     vi.stubGlobal(
       'fetch',
@@ -1925,5 +1953,54 @@ describe('Calendar workspace', () => {
     expect(await screen.findByText(/saved insights dashboard/i)).toBeInTheDocument()
     await userEvent.click(await screen.findByRole('button', { name: /meeting hours this week/i }))
     expect(await screen.findByText(/you have 6\.0 hours of meetings/i)).toBeInTheDocument()
+  })
+
+  it('renders the temp blocked times workspace route', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input)
+
+        if (url.endsWith('/api/v1/auth/csrf')) {
+          return jsonResponse({ success: true })
+        }
+
+        if (url.endsWith('/api/v1/auth/me')) {
+          return buildAuthenticatedSessionResponse()
+        }
+
+        if (url.endsWith('/api/v1/chat/credits')) {
+          return buildChatCreditsResponse()
+        }
+
+        if (url.endsWith('/api/v1/settings/temp-blocked-times')) {
+          return jsonResponse({
+            entries: [
+              {
+                id: 'temp-1',
+                label: 'Hold for Joe',
+                date: '2026-04-07',
+                start: '09:00',
+                end: '10:00',
+                source: 'email_draft',
+                created_at: '2026-04-06T15:00:00Z',
+              },
+            ],
+          })
+        }
+
+        return new Response('Not found', { status: 404 })
+      }),
+    )
+
+    render(
+      <MemoryRouter initialEntries={['/temp-blocked-times']}>
+        <App />
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByText(/^temporary holds$/i)).toBeInTheDocument()
+    expect(await screen.findByText(/hold for joe/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /remove/i })).toBeInTheDocument()
   })
 })

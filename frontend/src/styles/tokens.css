@@ -1,0 +1,33 @@
+@import url('https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+
+:root {
+  font-family: 'Plus Jakarta Sans', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  color: #1b1c1a;
+  background: #faf8f5;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  --page-bg: #faf8f5;
+  --panel-bg: #fbf9f6;
+  --panel-border: #e6e4e1;
+  --text: #1b1c1a;
+  --muted: #5f5a54;
+  --accent: #c05746;
+  --accent-dark: #a3493b;
+  --soft-accent: #f5f3f0;
+  --error: #8d3a29;
+  --shadow: 0 8px 24px rgba(27, 28, 26, 0.06);
+  --font-body: 'Plus Jakarta Sans', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  --font-display: 'Newsreader', Georgia, 'Times New Roman', serif;
+  --font-size-body: 0.875rem;
+  --font-size-caption: 0.75rem;
+  --control-radius: 8px;
+  --button-height-sm: 36px;
+  --button-height-md: 40px;
+  --button-height-lg: 44px;
+  --button-padding-x-sm: 12px;
+  --button-padding-x-md: 14px;
+  --button-padding-x-lg: 16px;
+}

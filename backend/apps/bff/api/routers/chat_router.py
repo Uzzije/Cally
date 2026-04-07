@@ -2,6 +2,7 @@ import logging
 
 from ninja import Router
 
+from apps.core.api.auth import session_auth
 from apps.bff.api.schemas.chat_action_proposal_response_schema import (
     ChatActionProposalResponseSchema,
 )
@@ -36,14 +37,7 @@ from apps.chat.services.chat_turn_trigger_service import ChatTurnTriggerService
 
 logger = logging.getLogger(__name__)
 
-router = Router(tags=["chat"])
-
-
-def _require_authenticated_user(request):
-    if request.user.is_authenticated:
-        return None
-
-    return 401, {"detail": "Authentication credentials were not provided."}
+router = Router(tags=["chat"], auth=session_auth)
 
 
 def _serialize_session(session):
@@ -93,10 +87,6 @@ def _serialize_proposal(proposal):
     response={200: ChatCreditStatusResponseSchema, 401: ErrorResponseSchema},
 )
 def get_chat_credits(request):
-    auth_error = _require_authenticated_user(request)
-    if auth_error:
-        return auth_error
-
     status = ChatMessageCreditService().get_status(request.user)
     return ChatCreditStatusResponseSchema(
         limit=status.limit,
@@ -111,10 +101,6 @@ def get_chat_credits(request):
     response={200: ChatSessionsResponseSchema, 401: ErrorResponseSchema},
 )
 def list_chat_sessions(request):
-    auth_error = _require_authenticated_user(request)
-    if auth_error:
-        return auth_error
-
     sessions = ChatSessionService().list_sessions(request.user)
     return ChatSessionsResponseSchema(
         sessions=[_serialize_session(session) for session in sessions],
@@ -126,10 +112,6 @@ def list_chat_sessions(request):
     response={200: ChatSessionResponseSchema, 401: ErrorResponseSchema},
 )
 def create_chat_session(request):
-    auth_error = _require_authenticated_user(request)
-    if auth_error:
-        return auth_error
-
     session = ChatSessionService().create_session(request.user)
     return _serialize_session(session)
 
@@ -143,10 +125,6 @@ def create_chat_session(request):
     },
 )
 def get_chat_messages(request, session_id: int):
-    auth_error = _require_authenticated_user(request)
-    if auth_error:
-        return auth_error
-
     session = ChatSessionService().get_user_session(request.user, session_id=session_id)
     if session is None:
         return 404, {"detail": "Chat session not found."}
@@ -168,10 +146,6 @@ def get_chat_messages(request, session_id: int):
     },
 )
 def post_chat_message(request, session_id: int, payload: ChatSubmitMessageRequestSchema):
-    auth_error = _require_authenticated_user(request)
-    if auth_error:
-        return auth_error
-
     session_service = ChatSessionService()
     session = session_service.get_user_session(request.user, session_id=session_id)
     if session is None:
@@ -202,10 +176,6 @@ def post_chat_message(request, session_id: int, payload: ChatSubmitMessageReques
     },
 )
 def get_chat_turn_status(request, session_id: int, turn_id: int):
-    auth_error = _require_authenticated_user(request)
-    if auth_error:
-        return auth_error
-
     session = ChatSessionService().get_user_session(request.user, session_id=session_id)
     if session is None:
         return 404, {"detail": "Chat session not found."}
@@ -231,10 +201,6 @@ def get_chat_turn_status(request, session_id: int, turn_id: int):
     },
 )
 def get_action_proposal(request, session_id: int, proposal_id: str):
-    auth_error = _require_authenticated_user(request)
-    if auth_error:
-        return auth_error
-
     try:
         proposal = ChatActionProposalService().get_user_proposal(
             request.user,
@@ -257,10 +223,6 @@ def get_action_proposal(request, session_id: int, proposal_id: str):
     },
 )
 def approve_action_proposal(request, session_id: int, proposal_id: str):
-    auth_error = _require_authenticated_user(request)
-    if auth_error:
-        return auth_error
-
     try:
         proposal = ChatActionProposalService().approve_proposal(
             request.user,
@@ -285,10 +247,6 @@ def approve_action_proposal(request, session_id: int, proposal_id: str):
     },
 )
 def reject_action_proposal(request, session_id: int, proposal_id: str):
-    auth_error = _require_authenticated_user(request)
-    if auth_error:
-        return auth_error
-
     try:
         proposal = ChatActionProposalService().reject_proposal(
             request.user,

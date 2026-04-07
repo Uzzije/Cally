@@ -12,6 +12,7 @@ from apps.chat.models.chat_turn import (
     ChatTurnStatus,
 )
 from apps.chat.models.message import Message
+from apps.core.types import AuthenticatedUser
 
 
 class ChatTurnService:
@@ -25,7 +26,9 @@ class ChatTurnService:
             scope_decision=ChatTurnScopeDecision.AMBIGUOUS,
         )
 
-    def get_user_turn(self, user, *, session_id: int, turn_id: int) -> ChatTurn | None:
+    def get_user_turn(
+        self, user: AuthenticatedUser, *, session_id: int, turn_id: int
+    ) -> ChatTurn | None:
         return (
             ChatTurn.objects.select_related("assistant_message", "user_message", "session")
             .filter(session__user=user, session_id=session_id, id=turn_id)

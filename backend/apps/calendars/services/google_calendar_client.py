@@ -19,6 +19,7 @@ from apps.calendars.services.google_calendar_payloads import (
     GoogleCalendarWatchSubscription,
 )
 from apps.calendars.services.google_calendar_event_normalizer import normalize_google_event
+from apps.core.types import AuthenticatedUser
 
 logger = logging.getLogger(__name__)
 
@@ -34,17 +35,17 @@ class GoogleCalendarClient:
     def __init__(self, credential_service: GoogleOAuthCredentialService | None = None) -> None:
         self.credential_service = credential_service or GoogleOAuthCredentialService()
 
-    def _get_valid_credential(self, user) -> DecryptedGoogleOAuthCredential:
+    def _get_valid_credential(self, user: AuthenticatedUser) -> DecryptedGoogleOAuthCredential:
         credential = self._get_credential(user)
         if self._token_needs_refresh(credential):
             return self._refresh_credential(user=user)
         return credential
 
-    def _get_headers(self, user) -> dict[str, str]:
+    def _get_headers(self, user: AuthenticatedUser) -> dict[str, str]:
         credential = self._get_valid_credential(user)
         return {"Authorization": f"Bearer {credential.access_token}"}
 
-    def _get_credential(self, user) -> DecryptedGoogleOAuthCredential:
+    def _get_credential(self, user: AuthenticatedUser) -> DecryptedGoogleOAuthCredential:
         try:
             return self.credential_service.get_decrypted_credential(user)
         except GoogleOAuthCredentialError as exc:
@@ -56,7 +57,7 @@ class GoogleCalendarClient:
             return False
         return expires_at <= timezone.now() + timedelta(minutes=1)
 
-    def _refresh_credential(self, *, user) -> DecryptedGoogleOAuthCredential:
+    def _refresh_credential(self, *, user: AuthenticatedUser) -> DecryptedGoogleOAuthCredential:
         credential = self._get_credential(user)
         refresh_token = credential.refresh_token
         client_id = (
@@ -113,7 +114,13 @@ class GoogleCalendarClient:
         )
 
     def _request(
-        self, method: str, url: str, *, user, retry_on_unauthorized: bool = True, **kwargs
+        self,
+        method: str,
+        url: str,
+        *,
+        user: AuthenticatedUser,
+        retry_on_unauthorized: bool = True,
+        **kwargs,
     ) -> requests.Response:
         extra_headers = kwargs.pop("headers", {})
         response = requests.request(
@@ -150,7 +157,7 @@ class GoogleCalendarClient:
             f"{operation} failed with Google Calendar API status {response.status_code}."
         )
 
-    def get_primary_calendar(self, user) -> GoogleCalendarDescriptor:
+    def get_primary_calendar(self, user: AuthenticatedUser) -> GoogleCalendarDescriptor:
         response = self._request(
             "GET",
             f"{self.base_url}/users/me/calendarList",
@@ -180,7 +187,7 @@ class GoogleCalendarClient:
 
     def create_event(
         self,
-        user,
+        user: AuthenticatedUser,
         *,
         calendar_id: str,
         title,
@@ -230,7 +237,7 @@ class GoogleCalendarClient:
 
     def get_free_busy(
         self,
-        user,
+        user: AuthenticatedUser,
         *,
         attendee_emails: list[str],
         time_min: datetime,
@@ -278,7 +285,11 @@ class GoogleCalendarClient:
         return busy_by_attendee
 
     def list_events(
-        self, user, *, calendar_id: str, sync_token: str | None = None
+        self,
+        user: AuthenticatedUser,
+        *,
+        calendar_id: str,
+        sync_token: str | None = None,
     ) -> tuple[list[CalendarEventPayload], str]:
         params: dict[str, str] = {
             "singleEvents": "true",
@@ -345,7 +356,7 @@ class GoogleCalendarClient:
 
     def watch_calendar(
         self,
-        user,
+        user: AuthenticatedUser,
         *,
         calendar_id: str,
         webhook_address: str,
@@ -400,7 +411,7 @@ class GoogleCalendarClient:
 
         return datetime.fromtimestamp(expiration_ms / 1000, tz=datetime_timezone.utc)
 
-    def stop_channel(self, user, *, channel_id: str, resource_id: str) -> None:
+    def stop_channel(self, user: AuthenticatedUser, *, channel_id: str, resource_id: str) -> None:
         response = self._request(
             "POST",
             f"{self.base_url}/channels/stop",

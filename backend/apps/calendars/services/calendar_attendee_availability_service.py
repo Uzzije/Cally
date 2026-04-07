@@ -8,6 +8,7 @@ from apps.calendars.services.google_calendar_client import (
     GoogleCalendarClient,
     GoogleCalendarClientError,
 )
+from apps.core.types import AuthenticatedUser
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +30,7 @@ class CalendarAttendeeAvailabilityService:
     def lookup_attendee_busy_ranges(
         self,
         *,
-        user,
+        user: AuthenticatedUser,
         attendee_emails: list[str],
         start: datetime,
         end: datetime,

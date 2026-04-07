@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from apps.core.types import AuthenticatedUser
 from apps.preferences.services.preference_query_service import PreferenceQueryService
 
 
@@ -21,7 +22,7 @@ class ChatPlanningConstraintsService:
     ) -> None:
         self.preference_query_service = preference_query_service or PreferenceQueryService()
 
-    def get_constraints(self, user) -> PlanningConstraints:
+    def get_constraints(self, user: AuthenticatedUser) -> PlanningConstraints:
         preferences = self.preference_query_service.get_for_user(user)
         return PlanningConstraints(
             execution_mode=preferences.execution_mode,

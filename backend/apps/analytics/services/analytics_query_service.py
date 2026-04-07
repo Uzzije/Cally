@@ -10,6 +10,7 @@ from django.utils import timezone
 
 from apps.analytics.constants import SUPPORTED_ANALYTICS_QUERY_TYPES
 from apps.calendars.models.event import Event
+from apps.core.types import AuthenticatedUser
 from apps.calendars.services.calendar_query_service import CalendarQueryService
 
 
@@ -34,7 +35,7 @@ class AnalyticsQueryService:
     def __init__(self, *, calendar_query_service: CalendarQueryService | None = None) -> None:
         self.calendar_query_service = calendar_query_service or CalendarQueryService()
 
-    def run(self, *, user, query_type: str) -> AnalyticsQueryResult:
+    def run(self, *, user: AuthenticatedUser, query_type: str) -> AnalyticsQueryResult:
         if query_type not in self.supported_query_types:
             raise AnalyticsQueryServiceError(f"Unsupported analytics query_type: {query_type}.")
 
@@ -43,7 +44,7 @@ class AnalyticsQueryService:
 
         return self._busiest_day_last_14_days(user)
 
-    def _meeting_hours_by_weekday_this_week(self, user) -> AnalyticsQueryResult:
+    def _meeting_hours_by_weekday_this_week(self, user: AuthenticatedUser) -> AnalyticsQueryResult:
         tz = ZoneInfo(self.calendar_query_service.get_default_timezone(user))
         now_local = timezone.now().astimezone(tz)
         start_of_week = (now_local - timedelta(days=now_local.weekday())).replace(
@@ -83,7 +84,7 @@ class AnalyticsQueryService:
             },
         )
 
-    def _busiest_day_last_14_days(self, user) -> AnalyticsQueryResult:
+    def _busiest_day_last_14_days(self, user: AuthenticatedUser) -> AnalyticsQueryResult:
         tz = ZoneInfo(self.calendar_query_service.get_default_timezone(user))
         now_local = timezone.now().astimezone(tz)
         start = (now_local - timedelta(days=13)).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -122,7 +123,9 @@ class AnalyticsQueryService:
             },
         )
 
-    def _events_for_range(self, user, *, start: datetime, end: datetime) -> QuerySet[Event]:
+    def _events_for_range(
+        self, user: AuthenticatedUser, *, start: datetime, end: datetime
+    ) -> QuerySet[Event]:
         return Event.objects.select_related("calendar").filter(
             calendar__user=user,
             start_time__lt=end,

@@ -1,21 +1,22 @@
 from __future__ import annotations
 
 from apps.chat.models.chat_session import ChatSession
+from apps.core.types import AuthenticatedUser
 
 
 class ChatSessionService:
     default_title = "New conversation"
 
-    def list_sessions(self, user):
+    def list_sessions(self, user: AuthenticatedUser):
         return ChatSession.objects.filter(user=user).order_by("-updated_at", "-id")
 
-    def create_session(self, user, *, title: str | None = None) -> ChatSession:
+    def create_session(self, user: AuthenticatedUser, *, title: str | None = None) -> ChatSession:
         return ChatSession.objects.create(
             user=user,
             title=title or self.default_title,
         )
 
-    def get_user_session(self, user, *, session_id: int) -> ChatSession | None:
+    def get_user_session(self, user: AuthenticatedUser, *, session_id: int) -> ChatSession | None:
         return ChatSession.objects.filter(user=user, id=session_id).first()
 
     def assign_title_from_message(self, session: ChatSession, *, message_text: str) -> ChatSession:

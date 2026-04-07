@@ -8,6 +8,7 @@ from django.utils import timezone
 
 from apps.accounts.models.google_oauth_credential import GoogleOAuthCredential
 from apps.accounts.services.google_token_cipher_service import GoogleTokenCipherService
+from apps.core.types import AuthenticatedUser
 
 
 class GoogleOAuthCredentialError(Exception):
@@ -25,13 +26,13 @@ class GoogleOAuthCredentialService:
     def __init__(self, cipher: GoogleTokenCipherService | None = None) -> None:
         self.cipher = cipher or GoogleTokenCipherService()
 
-    def has_credential(self, user) -> bool:
+    def has_credential(self, user: AuthenticatedUser) -> bool:
         credential = self._load_or_bootstrap(user)
         return bool(
             credential and credential.access_token_encrypted and credential.refresh_token_encrypted
         )
 
-    def get_decrypted_credential(self, user) -> DecryptedGoogleOAuthCredential:
+    def get_decrypted_credential(self, user: AuthenticatedUser) -> DecryptedGoogleOAuthCredential:
         credential = self._load_or_bootstrap(user)
         if credential is None or not credential.access_token_encrypted:
             raise GoogleOAuthCredentialError("Google access token is not available.")
@@ -69,7 +70,7 @@ class GoogleOAuthCredentialService:
 
     def update_access_token(
         self,
-        user,
+        user: AuthenticatedUser,
         *,
         access_token: str,
         expires_at,
@@ -82,7 +83,7 @@ class GoogleOAuthCredentialService:
         credential.save(update_fields=["access_token_encrypted", "expires_at", "updated_at"])
         return credential
 
-    def _load_or_bootstrap(self, user) -> GoogleOAuthCredential | None:
+    def _load_or_bootstrap(self, user: AuthenticatedUser) -> GoogleOAuthCredential | None:
         credential = GoogleOAuthCredential.objects.filter(user=user).first()
         if credential is not None:
             return credential

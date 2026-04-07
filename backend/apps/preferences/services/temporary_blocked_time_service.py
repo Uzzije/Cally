@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from django.db import transaction
 from django.utils import timezone
 
+from apps.core.types import AuthenticatedUser
 from apps.preferences.models.temporary_blocked_time import (
     TemporaryBlockedTime,
     TemporaryBlockedTimeSource,
@@ -49,7 +50,7 @@ class NormalizedTemporaryBlockedTimeRequest(TypedDict):
 class TemporaryBlockedTimeService:
     hold_duration = timedelta(hours=1)
 
-    def list_active_for_user(self, user) -> list[TemporaryBlockedTime]:
+    def list_active_for_user(self, user: AuthenticatedUser) -> list[TemporaryBlockedTime]:
         return list(
             TemporaryBlockedTime.objects.filter(user=user, expires_at__gt=timezone.now()).order_by(
                 "start_time",
@@ -59,7 +60,7 @@ class TemporaryBlockedTimeService:
 
     def create_many_for_user(
         self,
-        user,
+        user: AuthenticatedUser,
         *,
         requests: list[TemporaryBlockedTimeCreateRequest],
     ) -> list[TemporaryBlockedTime]:
@@ -94,7 +95,7 @@ class TemporaryBlockedTimeService:
         )
         return created_entries
 
-    def delete_for_user(self, user, *, public_id: str) -> None:
+    def delete_for_user(self, user: AuthenticatedUser, *, public_id: str) -> None:
         deleted_count, _ = TemporaryBlockedTime.objects.filter(
             user=user, public_id=public_id
         ).delete()
@@ -107,7 +108,7 @@ class TemporaryBlockedTimeService:
             public_id,
         )
 
-    def clear_for_user(self, user) -> int:
+    def clear_for_user(self, user: AuthenticatedUser) -> int:
         deleted_count, _ = TemporaryBlockedTime.objects.filter(user=user).delete()
         logger.info(
             "preferences.temporary_blocked_times.cleared user_id=%s count=%s",

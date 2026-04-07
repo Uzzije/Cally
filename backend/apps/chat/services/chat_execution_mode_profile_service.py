@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from apps.core.types import AuthenticatedUser
 from apps.preferences.models.user_preferences import ExecutionMode
 from apps.preferences.services.preference_query_service import PreferenceQueryService
 
@@ -36,7 +37,7 @@ class ChatExecutionModeProfileService:
     ) -> None:
         self.preference_query_service = preference_query_service or PreferenceQueryService()
 
-    def get_profile(self, user) -> ChatExecutionModeProfile:
+    def get_profile(self, user: AuthenticatedUser) -> ChatExecutionModeProfile:
         preferences = self.preference_query_service.get_for_user(user)
         return self.from_execution_mode(execution_mode=preferences.execution_mode)
 

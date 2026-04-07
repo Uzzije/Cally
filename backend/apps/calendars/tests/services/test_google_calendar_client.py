@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from typing import Any, cast
 from unittest.mock import Mock, patch
 
+from django.contrib.auth import get_user_model
 from django.test import SimpleTestCase, override_settings
 from django.utils import timezone
 
@@ -11,6 +12,9 @@ from apps.calendars.services.google_calendar_client import (
     GoogleCalendarClientError,
 )
 from apps.accounts.services.google_oauth_credential_service import DecryptedGoogleOAuthCredential
+
+User = get_user_model()
+_mock_user = cast(Any, object())
 
 
 class GoogleCalendarClientTests(SimpleTestCase):
@@ -52,7 +56,7 @@ class GoogleCalendarClientTests(SimpleTestCase):
         requests_request.side_effect = [first_response, second_response]
 
         events, next_sync_token = client.list_events(
-            user=object(),
+            user=_mock_user,
             calendar_id="primary-calendar-id",
             sync_token=None,
         )
@@ -76,7 +80,7 @@ class GoogleCalendarClientTests(SimpleTestCase):
 
         with self.assertRaises(GoogleCalendarClientError):
             client.list_events(
-                user=object(),
+                user=_mock_user,
                 calendar_id="primary-calendar-id",
                 sync_token="existing-sync-token",
             )
@@ -101,7 +105,7 @@ class GoogleCalendarClientTests(SimpleTestCase):
         requests_request.return_value = response
 
         events, next_sync_token = client.list_events(
-            user=object(),
+            user=_mock_user,
             calendar_id="primary-calendar-id",
             sync_token=None,
         )
@@ -131,7 +135,7 @@ class GoogleCalendarClientTests(SimpleTestCase):
         requests_request.return_value = response
 
         result = client.get_free_busy(
-            user=object(),
+            user=_mock_user,
             attendee_emails=["joe@example.com"],
             time_min=self._dt("2026-04-07T09:00:00+00:00"),
             time_max=self._dt("2026-04-07T17:00:00+00:00"),
@@ -167,14 +171,14 @@ class GoogleCalendarClientTests(SimpleTestCase):
         response.json.return_value = {"access_token": "fresh-token", "expires_in": 3600}
         requests_post.return_value = response
 
-        headers = client._get_headers(user=object())
+        headers = client._get_headers(user=_mock_user)
 
         self.assertEqual(headers["Authorization"], "Bearer fresh-token")
         credential_service.update_access_token.assert_called_once()
 
     @patch("apps.calendars.services.google_calendar_client.requests.request")
     def test_request_retries_once_after_google_unauthorized(self, requests_request):
-        user = object()
+        user = _mock_user
         credential_service = Mock()
         credential = DecryptedGoogleOAuthCredential(
             access_token="expired-token",
@@ -216,7 +220,7 @@ class GoogleCalendarClientTests(SimpleTestCase):
         requests_request.return_value = response
 
         watch = client.watch_calendar(
-            user=object(),
+            user=_mock_user,
             calendar_id="primary-calendar-id",
             webhook_address="https://example.com/api/v1/calendar/webhook/google",
             channel_id="channel-123",
@@ -256,7 +260,7 @@ class GoogleCalendarClientTests(SimpleTestCase):
 
         with self.assertRaises(GoogleCalendarClientError):
             client.watch_calendar(
-                user=object(),
+                user=_mock_user,
                 calendar_id="primary-calendar-id",
                 webhook_address="https://example.com/api/v1/calendar/webhook/google",
                 channel_id="channel-123",
@@ -273,7 +277,7 @@ class GoogleCalendarClientTests(SimpleTestCase):
         requests_request.return_value = response
 
         client.stop_channel(
-            user=object(),
+            user=_mock_user,
             channel_id="channel-123",
             resource_id="resource-456",
         )

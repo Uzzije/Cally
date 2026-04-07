@@ -8,6 +8,7 @@ from django.db import models
 from django.utils import timezone
 
 from apps.calendars.models.calendar import Calendar
+from apps.core.types import AuthenticatedUser
 from apps.calendars.models.event import Event
 from apps.preferences.services.preference_query_service import PreferenceQueryService
 
@@ -30,10 +31,10 @@ class CalendarQueryService:
     ) -> None:
         self.preference_query_service = preference_query_service or PreferenceQueryService()
 
-    def get_primary_calendar(self, user) -> Calendar | None:
+    def get_primary_calendar(self, user: AuthenticatedUser) -> Calendar | None:
         return Calendar.objects.filter(user=user, is_primary=True).first()
 
-    def get_default_timezone(self, user) -> str:
+    def get_default_timezone(self, user: AuthenticatedUser) -> str:
         preferred_timezone = self.preference_query_service.get_display_timezone(user)
         if preferred_timezone:
             return preferred_timezone
@@ -53,7 +54,7 @@ class CalendarQueryService:
 
         return getattr(settings, "TIME_ZONE", "UTC")
 
-    def get_events_for_range(self, user, *, start: datetime, end: datetime):
+    def get_events_for_range(self, user: AuthenticatedUser, *, start: datetime, end: datetime):
         return (
             Event.objects.select_related("calendar")
             .filter(
@@ -65,7 +66,7 @@ class CalendarQueryService:
             .order_by("start_time", "id")
         )
 
-    def search_events(self, user, *, query: str, limit: int = 5):
+    def search_events(self, user: AuthenticatedUser, *, query: str, limit: int = 5):
         return (
             Event.objects.select_related("calendar")
             .filter(calendar__user=user, calendar__is_primary=True)
@@ -78,7 +79,7 @@ class CalendarQueryService:
             .order_by("start_time", "id")[:limit]
         )
 
-    def get_sync_status(self, user) -> CalendarSyncStatusResult:
+    def get_sync_status(self, user: AuthenticatedUser) -> CalendarSyncStatusResult:
         calendar = self.get_primary_calendar(user)
         if calendar is None:
             return CalendarSyncStatusResult(

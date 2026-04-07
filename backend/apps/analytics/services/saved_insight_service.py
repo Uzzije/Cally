@@ -10,6 +10,7 @@ from django.utils import timezone
 from apps.analytics.models.saved_insight import SavedInsight
 from apps.analytics.services.analytics_query_service import AnalyticsQueryService
 from apps.chat.models.message import Message, MessageRole
+from apps.core.types import AuthenticatedUser
 
 logger = logging.getLogger(__name__)
 
@@ -59,10 +60,10 @@ class SavedInsightService:
     ) -> None:
         self.analytics_query_service = analytics_query_service or AnalyticsQueryService()
 
-    def list_for_user(self, user):
+    def list_for_user(self, user: AuthenticatedUser):
         return SavedInsight.objects.filter(user=user)
 
-    def get_policy_for_user(self, user) -> SavedInsightPolicy:
+    def get_policy_for_user(self, user: AuthenticatedUser) -> SavedInsightPolicy:
         current_count = SavedInsight.objects.filter(user=user).count()
         return SavedInsightPolicy(
             max_saved_insights=self.max_saved_insights_per_user,
@@ -75,7 +76,7 @@ class SavedInsightService:
     def save_from_message(
         self,
         *,
-        user,
+        user: AuthenticatedUser,
         assistant_message_id: int,
         block_index: int,
     ) -> SavedInsightSaveResult:
@@ -135,7 +136,7 @@ class SavedInsightService:
         )
 
     @transaction.atomic
-    def refresh(self, *, user, public_id: str) -> SavedInsight:
+    def refresh(self, *, user: AuthenticatedUser, public_id: str) -> SavedInsight:
         insight = SavedInsight.objects.filter(user=user, public_id=public_id).first()
         if insight is None:
             raise SavedInsightNotFoundError("Saved insight was not found.")
@@ -164,7 +165,7 @@ class SavedInsightService:
         return insight
 
     @transaction.atomic
-    def delete(self, *, user, public_id: str) -> bool:
+    def delete(self, *, user: AuthenticatedUser, public_id: str) -> bool:
         insight = SavedInsight.objects.filter(user=user, public_id=public_id).first()
         if insight is None:
             logger.info(

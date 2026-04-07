@@ -317,7 +317,9 @@ class ChatTurnExecutionServiceTests(TestCase):
         self.assertEqual(result_turn.eval_snapshot["provider_name"], "openai")
         self.assertEqual(
             result_turn.eval_snapshot["tool_outputs"],
-            ['{"execution_mode": "draft_only", "blocked_times": [], "temp_blocked_times": []}'],
+            [
+                '{"execution_mode": "draft_only", "display_timezone": null, "blocked_times": [], "temp_blocked_times": []}'
+            ],
         )
 
     def test_process_turn_records_loop_events_in_trace_and_eval_snapshot(self):

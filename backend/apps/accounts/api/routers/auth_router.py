@@ -5,22 +5,23 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import ensure_csrf_cookie
 from ninja import Router
 
+from apps.core.api.auth import session_auth
 from apps.accounts.api.schemas.auth_me_response_schema import AuthMeResponseSchema
 from apps.accounts.api.schemas.auth_user_schema import AuthUserSchema
 from apps.accounts.services.user_profile_service import ensure_user_profile
 
-router = Router(tags=["auth"])
+router = Router(tags=["auth"], auth=session_auth)
 logger = logging.getLogger("apps.accounts.auth")
 
 
-@router.get("csrf")
+@router.get("csrf", auth=None)
 @ensure_csrf_cookie
 def get_csrf_token(request):
     logger.debug("auth.csrf_issued")
     return JsonResponse({"success": True})
 
 
-@router.get("me", response=AuthMeResponseSchema)
+@router.get("me", auth=None, response=AuthMeResponseSchema)
 def get_authenticated_user(request):
     if not request.user.is_authenticated:
         logger.info("auth.session_bootstrap anonymous=true")
@@ -50,21 +51,13 @@ def get_authenticated_user(request):
 
 @router.post("logout")
 def logout_authenticated_user(request):
-    if request.user.is_authenticated:
-        logger.info("auth.logout user_id=%s", request.user.id)
-        logout(request)
-    else:
-        logger.info("auth.logout anonymous=true")
-
+    logger.info("auth.logout user_id=%s", request.user.id)
+    logout(request)
     return {"success": True}
 
 
 @router.post("onboarding/complete")
 def complete_onboarding(request):
-    if not request.user.is_authenticated:
-        logger.warning("auth.onboarding_complete denied anonymous=true")
-        return 401, {"success": False}
-
     profile = ensure_user_profile(request.user)
     if not profile.onboarding_completed:
         profile.onboarding_completed = True
@@ -78,10 +71,6 @@ def complete_onboarding(request):
 
 @router.post("delete-account")
 def delete_authenticated_user(request):
-    if not request.user.is_authenticated:
-        logger.warning("auth.delete_account denied anonymous=true")
-        return JsonResponse({"success": False}, status=401)
-
     user = request.user
     user_id = user.id
     logout(request)

@@ -21,6 +21,7 @@ from apps.chat.models.chat_session import ChatSession
 from apps.chat.models.chat_turn import ChatTurn
 from apps.chat.models.message import Message
 from apps.chat.services.chat_execution_policy_service import ChatExecutionPolicyService
+from apps.core.types import AuthenticatedUser
 
 logger = logging.getLogger(__name__)
 
@@ -101,7 +102,9 @@ class ChatActionProposalService:
 
         return created_proposals
 
-    def get_user_proposal(self, user, *, session_id: int, proposal_id: str) -> ActionProposal:
+    def get_user_proposal(
+        self, user: AuthenticatedUser, *, session_id: int, proposal_id: str
+    ) -> ActionProposal:
         proposal = (
             ActionProposal.objects.select_related("session", "assistant_message")
             .filter(session__user=user, session_id=session_id, public_id=proposal_id)
@@ -112,7 +115,9 @@ class ChatActionProposalService:
 
         return proposal
 
-    def reject_proposal(self, user, *, session_id: int, proposal_id: str) -> ActionProposal:
+    def reject_proposal(
+        self, user: AuthenticatedUser, *, session_id: int, proposal_id: str
+    ) -> ActionProposal:
         proposal = self.get_user_proposal(user, session_id=session_id, proposal_id=proposal_id)
         if proposal.status != ActionProposalStatus.PENDING:
             raise ActionProposalConflictError("Only pending proposals can be rejected.")
@@ -132,7 +137,9 @@ class ChatActionProposalService:
         )
         return proposal
 
-    def approve_proposal(self, user, *, session_id: int, proposal_id: str) -> ActionProposal:
+    def approve_proposal(
+        self, user: AuthenticatedUser, *, session_id: int, proposal_id: str
+    ) -> ActionProposal:
         proposal = self.get_user_proposal(user, session_id=session_id, proposal_id=proposal_id)
         if proposal.status != ActionProposalStatus.PENDING:
             raise ActionProposalConflictError("Only pending proposals can be approved.")

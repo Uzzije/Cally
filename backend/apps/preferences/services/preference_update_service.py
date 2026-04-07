@@ -2,17 +2,14 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import Any
 from uuid import uuid4
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from django.contrib.auth import get_user_model
-
+from apps.core.types import AuthenticatedUser
 from apps.preferences.models.user_preferences import ExecutionMode, UserPreferences
 from apps.preferences.services.preferences_validation_error import PreferencesValidationError
 
 logger = logging.getLogger(__name__)
-User = get_user_model()
 
 WEEKDAY_ORDER = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 WEEKDAY_SET = set(WEEKDAY_ORDER)
@@ -21,7 +18,7 @@ WEEKDAY_SET = set(WEEKDAY_ORDER)
 class PreferenceUpdateService:
     def update_for_user(
         self,
-        user: Any,
+        user: AuthenticatedUser,
         *,
         execution_mode: str,
         display_timezone: str | None,

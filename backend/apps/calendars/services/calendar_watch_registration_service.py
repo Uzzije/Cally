@@ -8,6 +8,7 @@ import uuid
 from django.utils import timezone
 
 from apps.calendars.models.calendar import Calendar
+from apps.core.types import AuthenticatedUser
 from apps.calendars.services.calendar_webhook_address_resolver_service import (
     CalendarWebhookAddressResolverService,
 )
@@ -30,7 +31,7 @@ class CalendarWatchRegistrationService:
             webhook_address_resolver or CalendarWebhookAddressResolverService()
         )
 
-    def ensure_primary_calendar_watch(self, user, calendar: Calendar) -> bool:
+    def ensure_primary_calendar_watch(self, user: AuthenticatedUser, calendar: Calendar) -> bool:
         webhook_address = self.webhook_address_resolver.resolve()
         if not webhook_address:
             logger.info(

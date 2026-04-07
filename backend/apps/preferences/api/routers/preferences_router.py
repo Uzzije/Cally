@@ -2,6 +2,7 @@ import logging
 
 from ninja import Router
 
+from apps.core.api.auth import session_auth
 from apps.preferences.api.schemas.error_response_schema import ErrorResponseSchema
 from apps.preferences.api.schemas.temporary_blocked_time_schema import TemporaryBlockedTimeSchema
 from apps.preferences.api.schemas.temporary_blocked_time_request_schema import (
@@ -29,15 +30,8 @@ from apps.preferences.services.temporary_blocked_time_trigger_service import (
     TemporaryBlockedTimeTriggerService,
 )
 
-router = Router(tags=["settings"])
+router = Router(tags=["settings"], auth=session_auth)
 logger = logging.getLogger(__name__)
-
-
-def _require_authenticated_user(request):
-    if request.user.is_authenticated:
-        return None
-
-    return 401, {"detail": "Authentication credentials were not provided."}
 
 
 def _serialize_preferences(preferences):
@@ -60,10 +54,6 @@ def _serialize_temporary_blocked_times(entries):
     response={200: UserPreferencesResponseSchema, 401: ErrorResponseSchema},
 )
 def get_preferences(request):
-    auth_error = _require_authenticated_user(request)
-    if auth_error:
-        return auth_error
-
     preferences = PreferenceQueryService().get_for_user(request.user)
     return _serialize_preferences(preferences)
 
@@ -77,10 +67,6 @@ def get_preferences(request):
     },
 )
 def update_preferences(request, payload: UserPreferencesRequestSchema):
-    auth_error = _require_authenticated_user(request)
-    if auth_error:
-        return auth_error
-
     try:
         preferences = PreferenceUpdateService().update_for_user(
             request.user,
@@ -99,10 +85,6 @@ def update_preferences(request, payload: UserPreferencesRequestSchema):
     response={200: TemporaryBlockedTimesResponseSchema, 401: ErrorResponseSchema},
 )
 def get_temporary_blocked_times(request):
-    auth_error = _require_authenticated_user(request)
-    if auth_error:
-        return auth_error
-
     entries = PreferenceQueryService().get_active_temporary_blocked_times(request.user)
     return _serialize_temporary_blocked_times(entries)
 
@@ -116,10 +98,6 @@ def get_temporary_blocked_times(request):
     },
 )
 def create_temporary_blocked_times(request, payload: TemporaryBlockedTimeBulkCreateRequestSchema):
-    auth_error = _require_authenticated_user(request)
-    if auth_error:
-        return auth_error
-
     service = TemporaryBlockedTimeService()
     try:
         entries = service.create_many_for_user(
@@ -157,10 +135,6 @@ def create_temporary_blocked_times(request, payload: TemporaryBlockedTimeBulkCre
     response={200: TemporaryBlockedTimesResponseSchema, 401: ErrorResponseSchema},
 )
 def clear_temporary_blocked_times(request):
-    auth_error = _require_authenticated_user(request)
-    if auth_error:
-        return auth_error
-
     TemporaryBlockedTimeService().clear_for_user(request.user)
     return TemporaryBlockedTimesResponseSchema(entries=[])
 
@@ -174,10 +148,6 @@ def clear_temporary_blocked_times(request):
     },
 )
 def delete_temporary_blocked_time(request, entry_id: str):
-    auth_error = _require_authenticated_user(request)
-    if auth_error:
-        return auth_error
-
     service = TemporaryBlockedTimeService()
     try:
         service.delete_for_user(request.user, public_id=entry_id)
