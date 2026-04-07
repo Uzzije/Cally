@@ -1,3 +1,6 @@
+from typing import cast
+from zoneinfo import ZoneInfo
+
 from django.test import SimpleTestCase
 from django.utils.timezone import is_aware
 
@@ -46,7 +49,8 @@ class GoogleCalendarEventNormalizerTests(SimpleTestCase):
         self.assertEqual(normalized.timezone, "America/New_York")
         self.assertEqual(normalized.title, "Holiday")
         self.assertTrue(is_aware(normalized.start_time))
-        self.assertEqual(normalized.start_time.tzinfo.key, "America/New_York")
+        start_tz = cast(ZoneInfo, normalized.start_time.tzinfo)
+        self.assertEqual(start_tz.key, "America/New_York")
 
     def test_normalizes_datetime_without_offset_using_google_timezone(self):
         payload = {
@@ -66,8 +70,10 @@ class GoogleCalendarEventNormalizerTests(SimpleTestCase):
 
         self.assertTrue(is_aware(normalized.start_time))
         self.assertTrue(is_aware(normalized.end_time))
-        self.assertEqual(normalized.start_time.tzinfo.key, "America/Los_Angeles")
-        self.assertEqual(normalized.end_time.tzinfo.key, "America/Los_Angeles")
+        start_tz = cast(ZoneInfo, normalized.start_time.tzinfo)
+        end_tz = cast(ZoneInfo, normalized.end_time.tzinfo)
+        self.assertEqual(start_tz.key, "America/Los_Angeles")
+        self.assertEqual(end_tz.key, "America/Los_Angeles")
 
     def test_handles_missing_optional_fields(self):
         payload = {

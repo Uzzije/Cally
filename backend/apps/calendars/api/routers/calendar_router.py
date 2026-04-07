@@ -7,11 +7,17 @@ from apps.calendars.api.schemas.calendar_sync_response_schema import CalendarSyn
 from apps.calendars.api.schemas.calendar_sync_status_response_schema import (
     CalendarSyncStatusResponseSchema,
 )
+from apps.calendars.api.schemas.calendar_webhook_response_schema import (
+    CalendarWebhookResponseSchema,
+)
 from apps.calendars.api.schemas.error_response_schema import ErrorResponseSchema
 from apps.calendars.api.schemas.event_response_schema import EventResponseSchema
 from apps.calendars.services.calendar_query_service import CalendarQueryService
 from apps.calendars.services.calendar_sync_trigger_service import CalendarSyncTriggerService
-
+from apps.calendars.services.calendar_webhook_sync_service import (
+    CalendarWebhookAuthenticationError,
+    CalendarWebhookSyncService,
+)
 
 router = Router(tags=["calendar"])
 
@@ -55,7 +61,9 @@ def get_calendar_events(request, start: str, end: str):
                 id=calendar.id,
                 name=calendar.name,
                 is_primary=calendar.is_primary,
-                last_synced_at=calendar.last_synced_at.isoformat() if calendar.last_synced_at else None,
+                last_synced_at=(
+                    calendar.last_synced_at.isoformat() if calendar.last_synced_at else None
+                ),
             )
             if calendar
             else None
@@ -115,4 +123,20 @@ def sync_calendar(request):
     return CalendarSyncResponseSchema(
         accepted=True,
         event_ids=event_ids,
+    )
+
+
+@router.post(
+    "webhook/google",
+    response={202: CalendarWebhookResponseSchema, 401: ErrorResponseSchema},
+)
+def google_calendar_webhook(request):
+    try:
+        result = CalendarWebhookSyncService().handle_notification(headers=request.headers)
+    except CalendarWebhookAuthenticationError:
+        return 401, {"detail": "Invalid Google calendar webhook notification."}
+
+    return 202, CalendarWebhookResponseSchema(
+        accepted=result.accepted,
+        sync_requested=result.sync_requested,
     )

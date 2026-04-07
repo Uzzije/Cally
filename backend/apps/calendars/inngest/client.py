@@ -3,7 +3,6 @@ import logging
 import inngest
 from django.conf import settings
 
-
 inngest_client = inngest.Inngest(
     app_id=settings.INNGEST_APP_ID,
     api_base_url=settings.INNGEST_BASE_URL,

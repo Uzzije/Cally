@@ -33,7 +33,7 @@ Add these origins in Google Cloud if the frontend will run locally:
 - `http://localhost:3002`
 - `http://127.0.0.1:3002`
 
-## Render deployment
+## Live deployment (Render Example)
 
 For a two-service Render deployment, use the backend Render URL as the Google OAuth redirect URI:
 
@@ -47,8 +47,29 @@ Set these backend env vars in Render:
 - `DJANGO_CORS_ALLOWED_ORIGINS=https://<frontend-service>.onrender.com`
 - `DJANGO_CSRF_TRUSTED_ORIGINS=https://<frontend-service>.onrender.com`
 - `FRONTEND_BASE_URL=https://<frontend-service>.onrender.com`
+- `BACKEND_PUBLIC_BASE_URL=https://<backend-service>.onrender.com`
 - `GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_SECRET`
+- `GOOGLE_TOKEN_ENCRYPTION_KEY`
+- `GOOGLE_CALENDAR_WEBHOOK_TTL_SECONDS=604800`
+
+Optional override:
+
+- `GOOGLE_CALENDAR_WEBHOOK_ADDRESS`
+
+Notes:
+
+- If `GOOGLE_CALENDAR_WEBHOOK_ADDRESS` is blank, the backend derives the webhook URL as `<BACKEND_PUBLIC_BASE_URL>/api/v1/calendar/webhook/google`.
+- In production, the webhook URL must be public `https://` and cannot point at `localhost`.
+- `GOOGLE_TOKEN_ENCRYPTION_KEY` should be a Fernet-compatible base64 key. If blank, the app derives an encryption key from Django `SECRET_KEY`.
+- If watch registration fails or a watch expires, calendar sync still falls back safely to manual or polling-friendly refresh flows until the next successful renewal.
+
+Cookie policy defaults to `Lax`. If browser testing on Render shows the frontend cannot send the session reliably to the backend, switch both of these to `None`:
+
+- `DJANGO_SESSION_COOKIE_SAMESITE`
+- `DJANGO_CSRF_COOKIE_SAMESITE`
+
+When using `None`, keep production secure cookies enabled, which your `config.settings.prod` already does.
 
 Optional frontend auth route overrides are available if your production frontend uses different auth paths:
 

@@ -1,3 +1,5 @@
+import type { KeyboardEvent } from 'react'
+
 export function ChatComposer({
   value,
   disabled,
@@ -9,6 +11,19 @@ export function ChatComposer({
   onChange: (value: string) => void
   onSubmit: () => void
 }) {
+  const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key !== 'Enter' || event.shiftKey) {
+      return
+    }
+
+    event.preventDefault()
+    if (disabled || value.trim().length === 0) {
+      return
+    }
+
+    onSubmit()
+  }
+
   return (
     <div className="chat-composer">
       <textarea
@@ -19,10 +34,12 @@ export function ChatComposer({
         rows={3}
         value={value}
         onChange={(event) => onChange(event.target.value)}
+        onKeyDown={handleKeyDown}
       />
       <button
         className="primary-button button-md"
         disabled={disabled || value.trim().length === 0}
+        type="button"
         onClick={onSubmit}
       >
         {disabled ? 'Thinking…' : 'Send'}
@@ -30,4 +47,3 @@ export function ChatComposer({
     </div>
   )
 }
-

@@ -6,4 +6,3 @@ class CalendarSyncStatusResponseSchema(Schema):
     sync_state: str
     last_synced_at: str | None = None
     is_stale: bool
-

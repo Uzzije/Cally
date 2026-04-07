@@ -8,4 +8,3 @@ class ChatMessageResponseSchema(Schema):
     role: str
     content_blocks: list[dict[str, Any]]
     created_at: str
-

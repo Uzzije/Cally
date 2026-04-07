@@ -11,4 +11,3 @@ class AgentCapabilityTests(SimpleTestCase):
         )
 
         self.assertTrue(capability.enabled)
-

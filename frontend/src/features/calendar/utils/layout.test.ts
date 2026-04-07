@@ -31,12 +31,36 @@ describe('getEventBlockStyle', () => {
         organizer_email: 'owner@example.com',
         is_all_day: false,
       },
-    ])
+    ], 'UTC')
 
     expect(scrollTop).toBe(546)
   })
 
   it('keeps the default top position when the week has no events', () => {
-    expect(getInitialCalendarScrollTop([])).toBe(0)
+    expect(getInitialCalendarScrollTop([], 'UTC')).toBe(0)
+  })
+
+  it('calculates scroll offset using the selected display timezone', () => {
+    const scrollTop = getInitialCalendarScrollTop(
+      [
+        {
+          id: 1,
+          google_event_id: 'event-1',
+          title: 'Standup',
+          description: '',
+          start_time: '2026-04-06T14:00:00Z',
+          end_time: '2026-04-06T15:00:00Z',
+          timezone: 'UTC',
+          location: '',
+          status: 'confirmed',
+          attendees: [],
+          organizer_email: 'owner@example.com',
+          is_all_day: false,
+        },
+      ],
+      'America/Los_Angeles',
+    )
+
+    expect(scrollTop).toBe(252)
   })
 })

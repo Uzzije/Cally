@@ -6,4 +6,3 @@ class CalendarResponseSchema(Schema):
     name: str
     is_primary: bool
     last_synced_at: str | None = None
-

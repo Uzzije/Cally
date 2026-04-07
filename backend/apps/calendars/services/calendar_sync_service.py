@@ -2,15 +2,18 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from typing import Any
 
-from allauth.socialaccount.models import SocialToken
 from django.db import transaction
 from django.utils import timezone
 
+from apps.accounts.services.google_oauth_credential_service import GoogleOAuthCredentialService
 from apps.calendars.models.calendar import Calendar
 from apps.calendars.models.event import Event
+from apps.calendars.services.calendar_watch_registration_service import (
+    CalendarWatchRegistrationService,
+)
 from apps.calendars.services.google_calendar_client import GoogleCalendarClient
-
 
 logger = logging.getLogger(__name__)
 
@@ -28,11 +31,20 @@ class CalendarSyncResult:
 
 
 class CalendarSyncService:
-    def __init__(self, client: GoogleCalendarClient | None = None) -> None:
+    def __init__(
+        self,
+        client: Any | None = None,
+        watch_registration_service: CalendarWatchRegistrationService | None = None,
+        credential_service: GoogleOAuthCredentialService | None = None,
+    ) -> None:
         self.client = client or GoogleCalendarClient()
+        self.credential_service = credential_service or GoogleOAuthCredentialService()
+        self.watch_registration_service = (
+            watch_registration_service or CalendarWatchRegistrationService(client=self.client)
+        )
 
     def sync_primary_calendar(self, user) -> CalendarSyncResult:
-        if not SocialToken.objects.filter(account__user=user, account__provider="google").exists():
+        if not self.credential_service.has_credential(user):
             raise CalendarSyncError("Google account token is not available for calendar sync.")
 
         try:
@@ -67,6 +79,7 @@ class CalendarSyncService:
                     "name": calendar_descriptor.name,
                     "is_primary": calendar_descriptor.is_primary,
                     "color": calendar_descriptor.color,
+                    "timezone": calendar_descriptor.timezone,
                     "sync_token": next_sync_token,
                     "last_synced_at": synced_at,
                 },
@@ -89,6 +102,8 @@ class CalendarSyncService:
                         "is_all_day": event_payload.is_all_day,
                     },
                 )
+
+        self.watch_registration_service.ensure_primary_calendar_watch(user, calendar)
 
         return CalendarSyncResult(
             calendar_id=calendar.id,

@@ -4,7 +4,6 @@ from django.test import TestCase
 from apps.chat.models.chat_session import ChatSession
 from apps.chat.models.message import Message, MessageRole
 
-
 User = get_user_model()
 
 
@@ -24,4 +23,3 @@ class MessageModelTests(TestCase):
         )
 
         self.assertEqual(message.content_blocks[0]["type"], "text")
-

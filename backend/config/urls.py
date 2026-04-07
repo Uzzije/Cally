@@ -1,9 +1,8 @@
 from django.contrib import admin
 from django.urls import include, path
 
-from apps.calendars.inngest.serve import inngest_endpoint
 from config.api import api
-
+from config.inngest import inngest_endpoint
 
 urlpatterns = [
     path("admin/", admin.site.urls),

@@ -6,4 +6,3 @@ from apps.bff.api.schemas.chat_message_response_schema import ChatMessageRespons
 class ChatSubmitMessageResponseSchema(Schema):
     user_message: ChatMessageResponseSchema
     assistant_message: ChatMessageResponseSchema
-

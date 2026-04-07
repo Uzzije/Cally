@@ -6,7 +6,6 @@ import inngest
 from apps.calendars.inngest.client import inngest_client
 from apps.calendars.services.calendar_sync_service import CalendarSyncService
 
-
 logger = logging.getLogger(__name__)
 User = get_user_model()
 

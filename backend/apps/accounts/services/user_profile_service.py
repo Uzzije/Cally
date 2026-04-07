@@ -1,13 +1,14 @@
+from typing import Any
+
 from allauth.socialaccount.models import SocialAccount
 from django.contrib.auth import get_user_model
 
 from apps.accounts.models.user_profile import UserProfile
 
-
 User = get_user_model()
 
 
-def ensure_user_profile(user: User, social_account: SocialAccount | None = None) -> UserProfile:
+def ensure_user_profile(user: Any, social_account: SocialAccount | None = None) -> UserProfile:
     profile, _ = UserProfile.objects.get_or_create(user=user)
 
     if social_account is None:

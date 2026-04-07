@@ -4,7 +4,6 @@ from django.urls import reverse
 
 from apps.accounts.models.user_profile import UserProfile
 
-
 User = get_user_model()
 
 
@@ -106,3 +105,32 @@ class AuthRouterTests(TestCase):
         )
 
         self.assertTrue(UserProfile.objects.filter(user=user).exists())
+
+    def test_delete_account_requires_authenticated_user(self):
+        response = self.client.post("/api/v1/auth/delete-account", HTTP_HOST="localhost")
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.json(), {"success": False})
+
+    def test_delete_account_deletes_user_and_clears_session(self):
+        user = User.objects.create_user(
+            username="delete-me",
+            email="delete-me@example.com",
+            password="test-pass-123",
+        )
+        self.client.force_login(user)
+
+        response = self.client.post("/api/v1/auth/delete-account", HTTP_HOST="localhost")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"success": True})
+        self.assertFalse(User.objects.filter(id=user.id).exists())
+
+        me_response = self.client.get("/api/v1/auth/me", HTTP_HOST="localhost")
+        self.assertEqual(
+            me_response.json(),
+            {
+                "authenticated": False,
+                "user": None,
+            },
+        )

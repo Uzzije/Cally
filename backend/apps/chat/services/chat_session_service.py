@@ -32,4 +32,3 @@ class ChatSessionService:
         session.title = normalized_title
         session.save(update_fields=["title", "updated_at"])
         return session
-

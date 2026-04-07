@@ -2,18 +2,37 @@ import logging
 
 from ninja import Router
 
-from apps.bff.api.schemas.chat_message_history_response_schema import ChatMessageHistoryResponseSchema
+from apps.bff.api.schemas.chat_action_proposal_response_schema import (
+    ChatActionProposalResponseSchema,
+)
+from apps.bff.api.schemas.chat_credit_status_response_schema import ChatCreditStatusResponseSchema
+from apps.bff.api.schemas.chat_message_history_response_schema import (
+    ChatMessageHistoryResponseSchema,
+)
 from apps.bff.api.schemas.chat_message_response_schema import ChatMessageResponseSchema
 from apps.bff.api.schemas.chat_session_response_schema import ChatSessionResponseSchema
 from apps.bff.api.schemas.chat_sessions_response_schema import ChatSessionsResponseSchema
+from apps.bff.api.schemas.chat_submit_accepted_response_schema import (
+    ChatSubmitAcceptedResponseSchema,
+)
 from apps.bff.api.schemas.chat_submit_message_request_schema import ChatSubmitMessageRequestSchema
-from apps.bff.api.schemas.chat_submit_message_response_schema import ChatSubmitMessageResponseSchema
+from apps.bff.api.schemas.chat_turn_response_schema import ChatTurnResponseSchema
+from apps.bff.api.schemas.chat_turn_status_response_schema import ChatTurnStatusResponseSchema
 from apps.bff.api.schemas.error_response_schema import ErrorResponseSchema
-from apps.chat.services.chat_assistant_turn_service import ChatAssistantTurnService
+from apps.chat.services.chat_action_proposal_service import (
+    ActionProposalConflictError,
+    ActionProposalNotFoundError,
+    ActionProposalPolicyError,
+    ChatActionProposalService,
+)
 from apps.chat.services.chat_message_service import ChatMessageService
+from apps.chat.services.chat_message_credit_service import (
+    ChatMessageCreditLimitExceededError,
+    ChatMessageCreditService,
+)
 from apps.chat.services.chat_session_service import ChatSessionService
-from apps.core.exceptions import AppConfigurationError
-
+from apps.chat.services.chat_turn_service import ChatTurnService
+from apps.chat.services.chat_turn_trigger_service import ChatTurnTriggerService
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +60,49 @@ def _serialize_message(message):
         role=message.role,
         content_blocks=message.content_blocks,
         created_at=message.created_at.isoformat(),
+    )
+
+
+def _serialize_turn(turn):
+    return ChatTurnResponseSchema(
+        id=turn.id,
+        status=turn.status,
+        result_kind=turn.result_kind,
+        scope_decision=turn.scope_decision,
+        failure_reason=turn.failure_reason,
+        trace_events=turn.trace_events,
+        created_at=turn.created_at.isoformat(),
+        completed_at=turn.completed_at.isoformat() if turn.completed_at else None,
+    )
+
+
+def _serialize_proposal(proposal):
+    return ChatActionProposalResponseSchema(
+        id=proposal.public_id,
+        status=proposal.status,
+        action_type=proposal.action_type,
+        summary=proposal.summary,
+        details=proposal.details,
+        status_detail=proposal.status_detail,
+        result=proposal.result_payload or None,
+    )
+
+
+@router.get(
+    "chat/credits",
+    response={200: ChatCreditStatusResponseSchema, 401: ErrorResponseSchema},
+)
+def get_chat_credits(request):
+    auth_error = _require_authenticated_user(request)
+    if auth_error:
+        return auth_error
+
+    status = ChatMessageCreditService().get_status(request.user)
+    return ChatCreditStatusResponseSchema(
+        limit=status.limit,
+        used=status.used,
+        remaining=status.remaining,
+        usage_date=status.usage_date,
     )
 
 
@@ -74,7 +136,11 @@ def create_chat_session(request):
 
 @router.get(
     "chat/sessions/{session_id}/messages",
-    response={200: ChatMessageHistoryResponseSchema, 401: ErrorResponseSchema, 404: ErrorResponseSchema},
+    response={
+        200: ChatMessageHistoryResponseSchema,
+        401: ErrorResponseSchema,
+        404: ErrorResponseSchema,
+    },
 )
 def get_chat_messages(request, session_id: int):
     auth_error = _require_authenticated_user(request)
@@ -95,10 +161,10 @@ def get_chat_messages(request, session_id: int):
 @router.post(
     "chat/sessions/{session_id}/messages",
     response={
-        200: ChatSubmitMessageResponseSchema,
+        202: ChatSubmitAcceptedResponseSchema,
         401: ErrorResponseSchema,
         404: ErrorResponseSchema,
-        503: ErrorResponseSchema,
+        429: ErrorResponseSchema,
     },
 )
 def post_chat_message(request, session_id: int, payload: ChatSubmitMessageRequestSchema):
@@ -111,37 +177,127 @@ def post_chat_message(request, session_id: int, payload: ChatSubmitMessageReques
     if session is None:
         return 404, {"detail": "Chat session not found."}
 
+    try:
+        ChatMessageCreditService().consume_credit(request.user)
+    except ChatMessageCreditLimitExceededError as exc:
+        return 429, {"detail": str(exc)}
+
     message_service = ChatMessageService()
     user_message = message_service.create_user_message(session, content=payload.content.strip())
     session_service.assign_title_from_message(session, message_text=payload.content)
+    turn = ChatTurnService().create_turn(session=session, user_message=user_message)
+    ChatTurnTriggerService().request_turn_processing(turn=turn)
+    return 202, ChatSubmitAcceptedResponseSchema(
+        user_message=_serialize_message(user_message),
+        turn=_serialize_turn(turn),
+    )
+
+
+@router.get(
+    "chat/sessions/{session_id}/turns/{turn_id}",
+    response={
+        200: ChatTurnStatusResponseSchema,
+        401: ErrorResponseSchema,
+        404: ErrorResponseSchema,
+    },
+)
+def get_chat_turn_status(request, session_id: int, turn_id: int):
+    auth_error = _require_authenticated_user(request)
+    if auth_error:
+        return auth_error
+
+    session = ChatSessionService().get_user_session(request.user, session_id=session_id)
+    if session is None:
+        return 404, {"detail": "Chat session not found."}
+
+    turn = ChatTurnService().get_user_turn(request.user, session_id=session_id, turn_id=turn_id)
+    if turn is None:
+        return 404, {"detail": "Chat turn not found."}
+
+    return ChatTurnStatusResponseSchema(
+        turn=_serialize_turn(turn),
+        assistant_message=(
+            _serialize_message(turn.assistant_message) if turn.assistant_message else None
+        ),
+    )
+
+
+@router.get(
+    "chat/sessions/{session_id}/proposals/{proposal_id}",
+    response={
+        200: ChatActionProposalResponseSchema,
+        401: ErrorResponseSchema,
+        404: ErrorResponseSchema,
+    },
+)
+def get_action_proposal(request, session_id: int, proposal_id: str):
+    auth_error = _require_authenticated_user(request)
+    if auth_error:
+        return auth_error
 
     try:
-        assistant_turn = ChatAssistantTurnService().generate_response(
-            session=session,
-            user_prompt=payload.content,
+        proposal = ChatActionProposalService().get_user_proposal(
+            request.user,
+            session_id=session_id,
+            proposal_id=proposal_id,
         )
-    except AppConfigurationError:
-        logger.exception(
-            "chat.assistant.turn.configuration_error session_id=%s user_id=%s",
-            session.id,
-            request.user.id,
-        )
-        return 503, {"detail": "Chat assistant is not configured yet."}
-    except Exception:  # noqa: BLE001
-        logger.exception(
-            "chat.assistant.turn.failed session_id=%s user_id=%s",
-            session.id,
-            request.user.id,
-        )
-        return 503, {"detail": "Unable to generate an assistant response right now."}
+    except ActionProposalNotFoundError as exc:
+        return 404, {"detail": str(exc)}
 
-    assistant_message = message_service.create_assistant_message(
-        session,
-        content_blocks=ChatAssistantTurnService().build_content_blocks(assistant_turn),
-        tool_calls=assistant_turn.tool_calls,
-    )
-    return ChatSubmitMessageResponseSchema(
-        user_message=_serialize_message(user_message),
-        assistant_message=_serialize_message(assistant_message),
-    )
+    return _serialize_proposal(proposal)
 
+
+@router.post(
+    "chat/sessions/{session_id}/proposals/{proposal_id}/approve",
+    response={
+        200: ChatActionProposalResponseSchema,
+        401: ErrorResponseSchema,
+        404: ErrorResponseSchema,
+        409: ErrorResponseSchema,
+    },
+)
+def approve_action_proposal(request, session_id: int, proposal_id: str):
+    auth_error = _require_authenticated_user(request)
+    if auth_error:
+        return auth_error
+
+    try:
+        proposal = ChatActionProposalService().approve_proposal(
+            request.user,
+            session_id=session_id,
+            proposal_id=proposal_id,
+        )
+    except ActionProposalNotFoundError as exc:
+        return 404, {"detail": str(exc)}
+    except (ActionProposalConflictError, ActionProposalPolicyError) as exc:
+        return 409, {"detail": str(exc)}
+
+    return _serialize_proposal(proposal)
+
+
+@router.post(
+    "chat/sessions/{session_id}/proposals/{proposal_id}/reject",
+    response={
+        200: ChatActionProposalResponseSchema,
+        401: ErrorResponseSchema,
+        404: ErrorResponseSchema,
+        409: ErrorResponseSchema,
+    },
+)
+def reject_action_proposal(request, session_id: int, proposal_id: str):
+    auth_error = _require_authenticated_user(request)
+    if auth_error:
+        return auth_error
+
+    try:
+        proposal = ChatActionProposalService().reject_proposal(
+            request.user,
+            session_id=session_id,
+            proposal_id=proposal_id,
+        )
+    except ActionProposalNotFoundError as exc:
+        return 404, {"detail": str(exc)}
+    except ActionProposalConflictError as exc:
+        return 409, {"detail": str(exc)}
+
+    return _serialize_proposal(proposal)

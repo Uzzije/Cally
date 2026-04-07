@@ -1,0 +1,62 @@
+[tool.black]
+line-length = 100
+target-version = ["py312"]
+extend-exclude = """
+(
+  /migrations/
+)
+"""
+
+[tool.mypy]
+python_version = "3.12"
+plugins = ["mypy_django_plugin.main"]
+files = [
+  "apps/analytics/api/routers",
+  "apps/analytics/models",
+  "apps/analytics/services",
+  "apps/accounts/api/routers",
+  "apps/accounts/api/schemas",
+  "apps/accounts/services",
+  "apps/bff/api/routers",
+  "apps/bff/api/schemas",
+  "apps/calendars/api/routers",
+  "apps/calendars/api/schemas",
+  "apps/preferences/api/routers",
+  "apps/preferences/api/schemas",
+  "apps/chat/services",
+  "apps/calendars/services",
+  "apps/core_agent/models",
+  "apps/core_agent/providers",
+  "apps/core_agent/services",
+  "apps/core_agent/decorators.py",
+  "apps/core_agent/apps.py",
+  "apps/preferences/services",
+  "apps/accounts/tests/api",
+  "apps/accounts/tests/models",
+  "apps/accounts/tests/services",
+  "apps/bff/tests/api",
+  "apps/calendars/tests/api",
+  "apps/calendars/tests/models",
+  "apps/calendars/tests/services",
+  "apps/chat/tests/models",
+  "apps/chat/tests/services",
+  "apps/core/tests",
+  "apps/core_agent/tests",
+  "apps/preferences/tests/api",
+  "apps/preferences/tests/inngest",
+  "apps/preferences/tests/models",
+  "apps/preferences/tests/services",
+]
+exclude = [
+  "^apps/.*/migrations/",
+]
+ignore_missing_imports = true
+follow_imports = "silent"
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+no_implicit_optional = true
+check_untyped_defs = true
+
+[tool.django-stubs]
+django_settings_module = "config.settings"

@@ -20,7 +20,11 @@ class CoreAgentImportBoundaryTests(SimpleTestCase):
         for python_file in python_files:
             tree = ast.parse(python_file.read_text())
             for node in ast.walk(tree):
-                if isinstance(node, ast.ImportFrom) and node.module and node.module.startswith("apps."):
+                if (
+                    isinstance(node, ast.ImportFrom)
+                    and node.module
+                    and node.module.startswith("apps.")
+                ):
                     if not (
                         node.module.startswith("apps.core.")
                         or node.module == "apps.core"

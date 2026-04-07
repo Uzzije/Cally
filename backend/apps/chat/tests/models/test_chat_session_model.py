@@ -3,7 +3,6 @@ from django.test import TestCase
 
 from apps.chat.models.chat_session import ChatSession
 
-
 User = get_user_model()
 
 
@@ -18,4 +17,3 @@ class ChatSessionModelTests(TestCase):
         session = ChatSession.objects.create(user=user)
 
         self.assertEqual(session.title, "New conversation")
-

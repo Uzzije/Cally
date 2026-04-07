@@ -10,6 +10,7 @@ class GoogleCalendarDescriptor:
     name: str
     is_primary: bool
     color: str = ""
+    timezone: str = ""
 
 
 @dataclass(frozen=True)
@@ -25,3 +26,10 @@ class CalendarEventPayload:
     attendees: list[dict]
     organizer_email: str
     is_all_day: bool
+
+
+@dataclass(frozen=True)
+class GoogleCalendarWatchSubscription:
+    channel_id: str
+    resource_id: str
+    expires_at: datetime | None

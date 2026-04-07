@@ -1,5 +1,6 @@
 from datetime import timedelta
 from unittest.mock import patch
+from typing import Any, cast
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
@@ -7,7 +8,6 @@ from django.utils import timezone
 
 from apps.calendars.models.calendar import Calendar
 from apps.calendars.models.event import Event
-
 
 User = get_user_model()
 
@@ -29,7 +29,9 @@ class CalendarRouterTests(TestCase):
         start = timezone.now().isoformat()
         end = (timezone.now() + timedelta(days=7)).isoformat()
 
-        response = self.client.get(f"/api/v1/calendar/events?start={start}&end={end}", HTTP_HOST="localhost")
+        response = self.client.get(
+            f"/api/v1/calendar/events?start={start}&end={end}", HTTP_HOST="localhost"
+        )
 
         self.assertEqual(response.status_code, 401)
 
@@ -66,7 +68,9 @@ class CalendarRouterTests(TestCase):
 
         start = (timezone.now() - timedelta(hours=1)).isoformat()
         end = (timezone.now() + timedelta(days=7)).isoformat()
-        response = self.client.get(f"/api/v1/calendar/events?start={start}&end={end}", HTTP_HOST="localhost")
+        response = self.client.get(
+            f"/api/v1/calendar/events?start={start}&end={end}", HTTP_HOST="localhost"
+        )
 
         self.assertEqual(response.status_code, 200)
         payload = response.json()
@@ -149,3 +153,48 @@ class CalendarRouterTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"accepted": True, "event_ids": ["event-id-1"]})
         service_class.return_value.request_primary_calendar_sync.assert_called_once_with(self.user)
+
+    @patch("apps.calendars.api.routers.calendar_router.CalendarWebhookSyncService")
+    def test_google_webhook_endpoint_accepts_valid_notification(self, service_class):
+        service_class.return_value.handle_notification.return_value = type(
+            "WebhookResult",
+            (),
+            {"accepted": True, "sync_requested": True},
+        )()
+
+        response = cast(Any, self.client).post(
+            "/api/v1/calendar/webhook/google",
+            HTTP_HOST="localhost",
+            **{
+                "HTTP_X_GOOG_CHANNEL_ID": "channel-123",
+                "HTTP_X_GOOG_CHANNEL_TOKEN": "secret-token",
+                "HTTP_X_GOOG_RESOURCE_ID": "resource-456",
+                "HTTP_X_GOOG_RESOURCE_STATE": "exists",
+            },
+        )
+
+        self.assertEqual(response.status_code, 202)
+        service_class.return_value.handle_notification.assert_called_once()
+
+    @patch("apps.calendars.api.routers.calendar_router.CalendarWebhookSyncService")
+    def test_google_webhook_endpoint_rejects_invalid_notification(self, service_class):
+        from apps.calendars.services.calendar_webhook_sync_service import (
+            CalendarWebhookAuthenticationError,
+        )
+
+        service_class.return_value.handle_notification.side_effect = (
+            CalendarWebhookAuthenticationError("Invalid Google calendar webhook notification.")
+        )
+
+        response = cast(Any, self.client).post(
+            "/api/v1/calendar/webhook/google",
+            HTTP_HOST="localhost",
+            **{
+                "HTTP_X_GOOG_CHANNEL_ID": "channel-123",
+                "HTTP_X_GOOG_CHANNEL_TOKEN": "bad-token",
+                "HTTP_X_GOOG_RESOURCE_ID": "resource-456",
+                "HTTP_X_GOOG_RESOURCE_STATE": "exists",
+            },
+        )
+
+        self.assertEqual(response.status_code, 401)

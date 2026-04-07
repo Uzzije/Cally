@@ -38,17 +38,19 @@ export function getEventBlockStyle({
   }
 }
 
-export function getEventStartMinutes(event: CalendarEvent) {
-  const start = getZonedHourAndMinute(event.start_time, event.timezone || 'UTC')
+export function getEventStartMinutes(event: CalendarEvent, timeZone: string) {
+  const start = getZonedHourAndMinute(event.start_time, timeZone || 'UTC')
   return (start.hour * 60) + start.minute
 }
 
-export function getInitialCalendarScrollTop(events: CalendarEvent[]) {
+export function getInitialCalendarScrollTop(events: CalendarEvent[], timeZone: string) {
   if (events.length === 0) {
     return 0
   }
 
-  const earliestStartMinutes = Math.min(...events.map(getEventStartMinutes))
+  const earliestStartMinutes = Math.min(
+    ...events.map((event) => getEventStartMinutes(event, timeZone)),
+  )
   const scrollTargetMinutes = Math.max(earliestStartMinutes - 60, 0)
   return Math.floor((scrollTargetMinutes / 60) * CALENDAR_HOUR_ROW_HEIGHT)
 }

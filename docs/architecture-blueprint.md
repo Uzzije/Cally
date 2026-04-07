@@ -381,3 +381,100 @@ When we add a new feature, we should validate:
 - what contract changes it requires
 
 If a feature does not have clear answers to these questions, the design likely needs refinement before implementation.
+
+---
+
+## 13. System Architecture Diagram
+
+```mermaid
+flowchart TB
+    subgraph Client["Browser"]
+        SPA["React SPA<br/>(DaisyUI + Tailwind)"]
+    end
+
+    subgraph Backend["Django Monolith"]
+        direction TB
+
+        NINJA["Django Ninja<br/>API Layer + SSE"]
+
+        subgraph Domains["Application Domains"]
+            direction LR
+            BFF["bff"]
+            ACCOUNTS["accounts"]
+            CHAT["chat"]
+            CALENDARS["calendars"]
+            PREFS["preferences"]
+            ANALYTICS["analytics"]
+        end
+
+        subgraph AgentRuntime["Core Agent Runtime"]
+            direction LR
+            AGNO["Agno Orchestrator<br/>(GAME Loop)"]
+            TOOLS["Tool Registry<br/>(read tools · action tools)"]
+            POLICY["Execution Policy<br/>(draft / confirm / auto)"]
+        end
+
+        subgraph Auth["Auth Boundary"]
+            ALLAUTH["django-allauth<br/>(headless OAuth)"]
+            SESSIONS["Session Management<br/>+ Token Store"]
+        end
+
+        subgraph Jobs["Background Jobs"]
+            SYNC_WORKER["Calendar Sync Worker"]
+            RETRY["Retry / Deferred Tasks"]
+        end
+    end
+
+    subgraph DataStore["Data Layer"]
+        PG[("PostgreSQL<br/>users · events · messages<br/>preferences · analytics")]
+    end
+
+    subgraph External["External Services"]
+        direction LR
+        GCAL["Google Calendar API"]
+        GMAIL["Google Gmail API"]
+        GCONTACTS["Google Contacts API"]
+        LLM["Claude · Anthropic<br/>(via Agno)"]
+        ORTOOLS["OR-Tools<br/>(CP-SAT Optimizer)"]
+    end
+
+    SPA -- "HTTPS · JSON + SSE" --> NINJA
+    NINJA --> BFF
+    BFF --> CHAT
+    BFF --> CALENDARS
+    BFF --> PREFS
+    BFF --> ANALYTICS
+    BFF --> ACCOUNTS
+    CHAT --> AGNO
+    AGNO --> TOOLS
+    TOOLS --> POLICY
+    NINJA --> ALLAUTH
+    ALLAUTH --> SESSIONS
+
+    ACCOUNTS --> PG
+    CALENDARS --> PG
+    CHAT --> PG
+    PREFS --> PG
+    ANALYTICS --> PG
+
+    SYNC_WORKER --> GCAL
+    SYNC_WORKER --> PG
+    TOOLS -- "read tools" --> PG
+    TOOLS -- "action tools<br/>(policy-gated)" --> GCAL
+    TOOLS -- "action tools<br/>(policy-gated)" --> GMAIL
+    TOOLS -- "read tools" --> GCONTACTS
+    AGNO -- "LLM calls" --> LLM
+    TOOLS -- "optimization" --> ORTOOLS
+    ALLAUTH -- "OAuth flow" --> GCAL
+```
+
+### How to read this diagram
+
+- **Client → Backend:** The React SPA communicates with Django Ninja over HTTPS using JSON request/response and SSE for streamed assistant replies.
+- **BFF layer:** All frontend-facing routes go through the `bff` domain, which composes responses from feature domains without exposing internal model shapes.
+- **Feature domains:** Each domain (`accounts`, `calendars`, `chat`, `preferences`, `analytics`) owns its own persistence and business rules. Horizontal coupling between them is minimised.
+- **Core Agent Runtime:** `chat` delegates reasoning to Agno, which drives the GAME loop (see [product-spec.md §7](product-spec.md#7-agent-design)). Tools are registered in a central registry. All side-effect tools pass through execution policy before calling external APIs.
+- **Auth boundary:** django-allauth handles the Google OAuth handshake and token lifecycle. Sessions are server-managed.
+- **Background jobs:** Calendar sync runs as a background worker (scheduled or on-demand), keeping the local Postgres mirror fresh without blocking API requests.
+- **External services:** Google APIs are accessed via `google-api-python-client` with tokens managed by Django, not by Agno. Claude is reached through Agno's provider abstraction. OR-Tools runs in-process for schedule optimisation.
+- **PostgreSQL** is the single source of truth for all application state.

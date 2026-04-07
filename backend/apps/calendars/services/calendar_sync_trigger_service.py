@@ -4,7 +4,6 @@ import inngest
 
 from apps.calendars.inngest.client import inngest_client
 
-
 logger = logging.getLogger(__name__)
 
 

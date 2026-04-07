@@ -7,4 +7,3 @@ from apps.bff.api.schemas.chat_session_response_schema import ChatSessionRespons
 class ChatMessageHistoryResponseSchema(Schema):
     session: ChatSessionResponseSchema
     messages: list[ChatMessageResponseSchema]
-

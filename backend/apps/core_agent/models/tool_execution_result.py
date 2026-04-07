@@ -7,4 +7,3 @@ class ToolExecutionResult:
     tool_name: str
     tool_args: dict[str, Any] = field(default_factory=dict)
     result: str | None = None
-

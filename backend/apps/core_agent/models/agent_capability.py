@@ -6,4 +6,3 @@ class AgentCapability:
     name: str
     description: str
     enabled: bool = True
-

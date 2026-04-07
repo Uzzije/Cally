@@ -12,8 +12,13 @@ class Calendar(models.Model):
     name = models.CharField(max_length=255)
     is_primary = models.BooleanField(default=False)
     color = models.CharField(max_length=32, blank=True)
+    timezone = models.CharField(max_length=64, blank=True)
     sync_token = models.TextField(blank=True)
     last_synced_at = models.DateTimeField(null=True, blank=True)
+    webhook_channel_id = models.CharField(max_length=255, blank=True)
+    webhook_resource_id = models.CharField(max_length=255, blank=True)
+    webhook_channel_token = models.CharField(max_length=255, blank=True)
+    webhook_expires_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -28,4 +33,3 @@ class Calendar(models.Model):
 
     def __str__(self) -> str:
         return f"{self.name} ({self.user_id})"
-

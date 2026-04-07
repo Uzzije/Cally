@@ -3,7 +3,6 @@ from django.test import TestCase
 
 from apps.chat.services.chat_session_service import ChatSessionService
 
-
 User = get_user_model()
 
 

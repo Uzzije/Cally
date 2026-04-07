@@ -9,7 +9,6 @@ from apps.accounts.api.schemas.auth_me_response_schema import AuthMeResponseSche
 from apps.accounts.api.schemas.auth_user_schema import AuthUserSchema
 from apps.accounts.services.user_profile_service import ensure_user_profile
 
-
 router = Router(tags=["auth"])
 logger = logging.getLogger("apps.accounts.auth")
 
@@ -74,4 +73,18 @@ def complete_onboarding(request):
     else:
         logger.info("auth.onboarding_complete user_id=%s updated=false", request.user.id)
 
+    return {"success": True}
+
+
+@router.post("delete-account")
+def delete_authenticated_user(request):
+    if not request.user.is_authenticated:
+        logger.warning("auth.delete_account denied anonymous=true")
+        return JsonResponse({"success": False}, status=401)
+
+    user = request.user
+    user_id = user.id
+    logout(request)
+    user.delete()
+    logger.info("auth.delete_account user_id=%s deleted=true", user_id)
     return {"success": True}

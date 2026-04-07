@@ -32,11 +32,7 @@ def normalize_google_event(payload: dict) -> CalendarEventPayload:
     start_payload = payload.get("start", {})
     end_payload = payload.get("end", {})
     is_all_day = "date" in start_payload
-    timezone_name = (
-        start_payload.get("timeZone")
-        or end_payload.get("timeZone")
-        or "UTC"
-    )
+    timezone_name = start_payload.get("timeZone") or end_payload.get("timeZone") or "UTC"
 
     start_raw = start_payload.get("dateTime") or start_payload.get("date")
     end_raw = end_payload.get("dateTime") or end_payload.get("date")

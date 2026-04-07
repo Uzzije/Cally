@@ -66,3 +66,27 @@ class FrontendAuthSettingsTests(SimpleTestCase):
             settings_module.HEADLESS_FRONTEND_URLS["account_signup"],
             "https://tenex-frontend.onrender.com/auth/signup",
         )
+
+    def test_cookie_samesite_defaults_to_lax(self):
+        settings_module = self.reload_settings({})
+
+        self.assertEqual(settings_module.SESSION_COOKIE_SAMESITE, "Lax")
+        self.assertEqual(settings_module.CSRF_COOKIE_SAMESITE, "Lax")
+
+    def test_cookie_samesite_can_be_overridden_for_cross_site_deployments(self):
+        settings_module = self.reload_settings(
+            {
+                "DJANGO_SESSION_COOKIE_SAMESITE": "None",
+                "DJANGO_CSRF_COOKIE_SAMESITE": "None",
+            }
+        )
+
+        self.assertEqual(settings_module.SESSION_COOKIE_SAMESITE, "None")
+        self.assertEqual(settings_module.CSRF_COOKIE_SAMESITE, "None")
+
+    def test_invalid_cookie_samesite_value_raises_error(self):
+        with self.assertRaisesMessage(
+            ValueError,
+            "DJANGO_SESSION_COOKIE_SAMESITE must be one of: Lax, None, Strict",
+        ):
+            self.reload_settings({"DJANGO_SESSION_COOKIE_SAMESITE": "invalid"})

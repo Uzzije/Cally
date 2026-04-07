@@ -14,4 +14,3 @@ class EventResponseSchema(Schema):
     attendees: list[dict]
     organizer_email: str
     is_all_day: bool
-

@@ -5,4 +5,3 @@ class ChatSessionResponseSchema(Schema):
     id: int
     title: str
     updated_at: str
-

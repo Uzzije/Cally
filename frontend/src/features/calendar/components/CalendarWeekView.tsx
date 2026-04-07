@@ -1,6 +1,9 @@
+import type { BlockedTimeEntry, TempBlockedTimeEntry } from '../../settings/types'
+import { BlockedTimeOverlay } from './BlockedTimeOverlay'
 import { useEffect, useRef } from 'react'
 
 import type { CalendarEvent } from '../types'
+import { expandBlockedTimesForWeek } from '../utils/blockedTimes'
 import { getEventBlockStyle } from '../utils/layout'
 import { formatEventTimeRange, isSameCalendarDay } from '../utils/week'
 
@@ -13,10 +16,13 @@ type WeekDay = {
 }
 
 type CalendarWeekViewProps = {
+  blockedTimes: BlockedTimeEntry[]
+  tempBlockedTimes?: TempBlockedTimeEntry[]
   events: CalendarEvent[]
   isLoading: boolean
   selectedEventId: number | null
   scrollTargetTop: number
+  timeZone: string
   weekDays: WeekDay[]
   onSelectEvent: (eventId: number) => void
 }
@@ -32,14 +38,23 @@ function formatHourLabel(hour: number) {
 }
 
 export function CalendarWeekView({
+  blockedTimes,
+  tempBlockedTimes = [],
   events,
   isLoading,
   selectedEventId,
   scrollTargetTop,
+  timeZone,
   weekDays,
   onSelectEvent,
 }: CalendarWeekViewProps) {
   const viewportRef = useRef<HTMLDivElement | null>(null)
+  const blockedTimeSegments = expandBlockedTimesForWeek({
+    blockedTimes,
+    tempBlockedTimes,
+    weekDays,
+    timeZone,
+  })
 
   useEffect(() => {
     if (!viewportRef.current || isLoading) {
@@ -74,7 +89,10 @@ export function CalendarWeekView({
         <div className="calendar-day-columns">
           {weekDays.map((day) => {
             const dayEvents = events.filter((event) =>
-              isSameCalendarDay(event.start_time, day.date, event.timezone),
+              isSameCalendarDay(event.start_time, day.date, timeZone),
+            )
+            const dayBlockedTimeSegments = blockedTimeSegments.filter(
+              (segment) => segment.dayKey === day.key,
             )
 
             return (
@@ -88,6 +106,8 @@ export function CalendarWeekView({
                     <div className="calendar-hour-line" key={`${day.key}-${hour}`} />
                   ))}
 
+                  <BlockedTimeOverlay segments={dayBlockedTimeSegments} />
+
                   {isLoading ? (
                     <div className="calendar-loading-state">Loading week…</div>
                   ) : null}
@@ -96,7 +116,7 @@ export function CalendarWeekView({
                     const style = getEventBlockStyle({
                       startTime: event.start_time,
                       endTime: event.end_time,
-                      timeZone: event.timezone,
+                      timeZone,
                     })
 
                     return (
@@ -115,7 +135,7 @@ export function CalendarWeekView({
                             event.start_time,
                             event.end_time,
                             event.is_all_day,
-                            event.timezone,
+                            timeZone,
                           )}
                         </span>
                       </button>

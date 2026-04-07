@@ -5,4 +5,3 @@ class BffConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
     name = "apps.bff"
     verbose_name = "BFF"
-

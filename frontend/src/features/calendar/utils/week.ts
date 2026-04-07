@@ -1,4 +1,5 @@
 const DAY_MS = 24 * 60 * 60 * 1000
+const WEEK_MS = 7 * DAY_MS
 
 export function getStartOfWeek(date: Date) {
   const copy = new Date(date)
@@ -10,11 +11,11 @@ export function getStartOfWeek(date: Date) {
 }
 
 export function getPreviousWeekStart(date: Date) {
-  return new Date(date.getTime() - (7 * DAY_MS))
+  return new Date(date.getTime() - WEEK_MS)
 }
 
 export function getNextWeekStart(date: Date) {
-  return new Date(date.getTime() + (7 * DAY_MS))
+  return new Date(date.getTime() + WEEK_MS)
 }
 
 export function buildWeekDays(weekStart: Date) {
@@ -34,6 +35,21 @@ export function formatWeekRange(weekStart: Date) {
   const startLabel = weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   const endLabel = weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   return `${startLabel} – ${endLabel}`
+}
+
+export function buildWeekOptions(
+  visibleWeekStart: Date,
+  { weeksBefore = 8, weeksAfter = 8 }: { weeksBefore?: number; weeksAfter?: number } = {},
+) {
+  return Array.from({ length: weeksBefore + weeksAfter + 1 }, (_, index) => {
+    const offset = index - weeksBefore
+    const weekStart = new Date(visibleWeekStart.getTime() + (offset * WEEK_MS))
+    return {
+      value: weekStart.toISOString(),
+      label: formatWeekRange(weekStart),
+      weekStart,
+    }
+  })
 }
 
 export function toApiDateRange(weekStart: Date) {

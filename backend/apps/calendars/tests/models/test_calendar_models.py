@@ -8,7 +8,6 @@ from django.utils import timezone
 from apps.calendars.models.calendar import Calendar
 from apps.calendars.models.event import Event
 
-
 User = get_user_model()
 
 

@@ -6,9 +6,11 @@ import { formatEventTimeRange } from '../utils/week'
 export function EventDetailsPanel({
   event,
   onboardingCompleted,
+  timeZone,
 }: {
   event: CalendarEvent | null
   onboardingCompleted: boolean
+  timeZone: string
 }) {
   const eventTitle = event ? toDisplayText(event.title) || 'Untitled event' : 'Choose an event'
   const location = parseLocationLink(event?.location)
@@ -30,7 +32,7 @@ export function EventDetailsPanel({
                 event.start_time,
                 event.end_time,
                 event.is_all_day,
-                event.timezone,
+                timeZone,
               )}
             </dd>
           </div>

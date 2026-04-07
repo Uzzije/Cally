@@ -4,7 +4,6 @@ from django.test import TestCase
 
 from apps.accounts.services.user_profile_service import ensure_user_profile
 
-
 User = get_user_model()
 
 

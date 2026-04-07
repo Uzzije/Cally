@@ -1,7 +1,6 @@
 import os
 from pathlib import Path
 
-
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 PROJECT_ROOT = BACKEND_DIR.parent
 
@@ -20,8 +19,62 @@ def build_frontend_url(base_url: str, path: str) -> str:
     return f"{normalized_base_url}{normalized_path}"
 
 
-SECRET_KEY = get_env("DJANGO_SECRET_KEY", "django-insecure-change-me")
-DEBUG = get_env_bool("DJANGO_DEBUG", True)
+def get_env_choice(name: str, default: str, allowed_values: set[str]) -> str:
+    value = get_env(name, default)
+    if value not in allowed_values:
+        allowed = ", ".join(sorted(allowed_values))
+        raise ValueError(f"{name} must be one of: {allowed}")
+    return value
+
+
+def is_production_like_runtime() -> bool:
+    return get_env("DJANGO_ENV", "development").strip().lower() in {
+        "production",
+        "staging",
+    }
+
+
+def get_secret_key() -> str:
+    secret_key = get_env("DJANGO_SECRET_KEY", None)
+    if secret_key:
+        return secret_key
+
+    if is_production_like_runtime():
+        raise ValueError("DJANGO_SECRET_KEY must be set when DJANGO_ENV is production-like.")
+
+    return "django-insecure-change-me"
+
+
+def get_debug_setting() -> bool:
+    explicit_debug = get_env("DJANGO_DEBUG", None)
+    if explicit_debug is not None:
+        return explicit_debug.lower() == "true"
+
+    return not is_production_like_runtime()
+
+
+def get_google_oauth_scopes() -> list[str]:
+    scopes = [
+        "openid",
+        "email",
+        "profile",
+        "https://www.googleapis.com/auth/calendar.readonly",
+        "https://www.googleapis.com/auth/calendar.events",
+    ]
+
+    if get_env_bool("GOOGLE_OAUTH_ENABLE_GMAIL_ACTIONS", True):
+        scopes.extend(
+            [
+                "https://www.googleapis.com/auth/gmail.send",
+                "https://www.googleapis.com/auth/gmail.compose",
+            ]
+        )
+
+    return scopes
+
+
+SECRET_KEY = get_secret_key()
+DEBUG = get_debug_setting()
 
 ALLOWED_HOSTS = [
     host.strip()
@@ -66,7 +119,9 @@ INSTALLED_APPS = [
     "apps.accounts",
     "apps.core_agent",
     "apps.calendars",
+    "apps.analytics",
     "apps.chat",
+    "apps.preferences",
     "apps.bff",
 ]
 
@@ -139,7 +194,7 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 LANGUAGE_CODE = "en-us"
-TIME_ZONE = get_env("DJANGO_TIME_ZONE", "America/Chicago")
+TIME_ZONE = get_env("DJANGO_TIME_ZONE", "UTC")
 USE_I18N = True
 USE_TZ = True
 
@@ -173,15 +228,7 @@ SOCIALACCOUNT_PROVIDERS = {
                 "key": "",
             }
         ],
-        "SCOPE": [
-            "openid",
-            "email",
-            "profile",
-            "https://www.googleapis.com/auth/calendar.readonly",
-            "https://www.googleapis.com/auth/calendar.events",
-            "https://www.googleapis.com/auth/gmail.send",
-            "https://www.googleapis.com/auth/gmail.compose",
-        ],
+        "SCOPE": get_google_oauth_scopes(),
         "AUTH_PARAMS": {
             "access_type": "offline",
             "prompt": "consent",
@@ -192,8 +239,10 @@ SOCIALACCOUNT_PROVIDERS = {
 }
 
 FRONTEND_BASE_URL = get_env("FRONTEND_BASE_URL", "http://localhost:3002")
+BACKEND_PUBLIC_BASE_URL = get_env("BACKEND_PUBLIC_BASE_URL", "")
+GOOGLE_TOKEN_ENCRYPTION_KEY = get_env("GOOGLE_TOKEN_ENCRYPTION_KEY", "")
 OPENAI_API_KEY = get_env("OPENAI_API_KEY", None)
-AGNO_MODEL_ID = get_env("AGNO_MODEL_ID", "gpt-4o-mini")
+AGNO_MODEL_ID = get_env("AGNO_MODEL_ID", "gpt-5-mini")
 
 # Iteration 1 uses browser redirect OAuth (Google -> callback -> frontend).
 # Keep headless URLs available, but do not force headless-only mode by default.
@@ -222,8 +271,16 @@ HEADLESS_FRONTEND_URLS = {
 }
 
 SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SAMESITE = "Lax"
-CSRF_COOKIE_SAMESITE = "Lax"
+SESSION_COOKIE_SAMESITE = get_env_choice(
+    "DJANGO_SESSION_COOKIE_SAMESITE",
+    "Lax",
+    {"Lax", "Strict", "None"},
+)
+CSRF_COOKIE_SAMESITE = get_env_choice(
+    "DJANGO_CSRF_COOKIE_SAMESITE",
+    "Lax",
+    {"Lax", "Strict", "None"},
+)
 
 LOGIN_REDIRECT_URL = FRONTEND_BASE_URL
 LOGOUT_REDIRECT_URL = FRONTEND_BASE_URL
@@ -237,6 +294,8 @@ INNGEST_SIGNING_KEY = get_env(
 )
 INNGEST_SERVE_ORIGIN = get_env("INNGEST_SERVE_ORIGIN", None)
 INNGEST_SERVE_PATH = get_env("INNGEST_SERVE_PATH", "/api/inngest")
+GOOGLE_CALENDAR_WEBHOOK_ADDRESS = get_env("GOOGLE_CALENDAR_WEBHOOK_ADDRESS", "")
+GOOGLE_CALENDAR_WEBHOOK_TTL_SECONDS = int(get_env("GOOGLE_CALENDAR_WEBHOOK_TTL_SECONDS", "604800"))
 
 LOG_LEVEL = get_env("LOG_LEVEL", "INFO").upper()
 

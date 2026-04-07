@@ -1,3 +1,5 @@
+import { useId, useRef } from 'react'
+
 import type { ChatSessionSummary } from '../types'
 
 
@@ -16,6 +18,16 @@ export function ChatSessionSwitcher({
   onCreateSession: () => void
   onSelectSession: (sessionId: number) => void
 }) {
+  const sessionRadioName = useId()
+  const accordionRef = useRef<HTMLDetailsElement | null>(null)
+
+  const handleSelectSession = (sessionId: number) => {
+    onSelectSession(sessionId)
+    if (accordionRef.current) {
+      accordionRef.current.open = false
+    }
+  }
+
   return (
     <section className="chat-session-switcher">
       <div className="chat-session-switcher-row">
@@ -29,28 +41,44 @@ export function ChatSessionSwitcher({
         </button>
       </div>
 
-      {isLoading ? <p className="chat-session-muted">Loading sessions…</p> : null}
+      <details className="chat-session-accordion" ref={accordionRef}>
+        <summary className="chat-session-summary">
+          <span>Conversation history</span>
+          <span className="chat-session-count">{sessions.length}</span>
+        </summary>
 
-      {!isLoading && sessions.length === 0 ? (
-        <p className="chat-session-muted">No previous conversations yet.</p>
-      ) : null}
+        <div className="chat-session-accordion-body">
+          {isLoading ? <p className="chat-session-muted">Loading sessions…</p> : null}
 
-      {!isLoading && sessions.length > 0 ? (
-        <div className="chat-session-list">
-          {sessions.map((session) => (
-            <button
-              key={session.id}
-              className={`chat-session-item${session.id === activeSessionId ? ' is-active' : ''}`}
-              onClick={() => onSelectSession(session.id)}
-              type="button"
-            >
-              <strong>{session.title}</strong>
-              <span>{new Date(session.updated_at).toLocaleDateString()}</span>
-            </button>
-          ))}
+          {!isLoading && sessions.length === 0 ? (
+            <p className="chat-session-muted">No previous conversations yet.</p>
+          ) : null}
+
+          {!isLoading && sessions.length > 0 ? (
+            <div className="chat-session-list" role="radiogroup" aria-label="Conversation history">
+              {sessions.map((session) => (
+                <label
+                  key={session.id}
+                  className={`chat-session-item${session.id === activeSessionId ? ' is-active' : ''}`}
+                >
+                  <input
+                    checked={session.id === activeSessionId}
+                    className="chat-session-radio"
+                    name={sessionRadioName}
+                    onChange={() => handleSelectSession(session.id)}
+                    type="radio"
+                    value={session.id}
+                  />
+                  <span className="chat-session-item-copy">
+                    <strong>{session.title}</strong>
+                    <span>{new Date(session.updated_at).toLocaleDateString()}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          ) : null}
         </div>
-      ) : null}
+      </details>
     </section>
   )
 }
-

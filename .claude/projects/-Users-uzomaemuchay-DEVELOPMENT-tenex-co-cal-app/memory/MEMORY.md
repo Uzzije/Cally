@@ -1,1 +1,0 @@
-- [Cal Assistant Project](project_cal_assistant.md) — Tech stack, architecture decisions, and project status for the calendar AI assistant app

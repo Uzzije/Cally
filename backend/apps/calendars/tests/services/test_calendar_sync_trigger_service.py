@@ -5,7 +5,6 @@ from django.test import TestCase
 
 from apps.calendars.services.calendar_sync_trigger_service import CalendarSyncTriggerService
 
-
 User = get_user_model()
 
 
