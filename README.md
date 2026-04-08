@@ -1,6 +1,6 @@
-# Cally Assistant
+# Cal Assistant
 
-Cally Assistant is a calendar workspace with an AI chat layer on top of synced Google Calendar data.
+Cal Assistant is an AI assistant for your google calender.
 
 It lets a signed-in user:
 
@@ -20,7 +20,7 @@ It lets a signed-in user:
 - **Agent runtime:** Agno + OpenAI (configurable via `AGNO_MODEL_ID`, defaults to `gpt-5-mini`)
 - **Background jobs:** Inngest
 - **Data store:** PostgreSQL in Docker, SQLite for local backend runs
-- **Quality tooling:** Black, mypy (165 source files checked), ESLint, Vitest
+- **Quality tooling:** Black, mypy, ESLint, Vitest
 
 ## How It Works
 
@@ -51,7 +51,6 @@ flowchart TD
     AN --> DB
 
     CAL --> GC["Google Calendar API"]
-    CHAT --> GM["Gmail API"]
     AUTH --> GO["Google OAuth"]
     AG --> LLM["OpenAI model"]
     BG --> GC
@@ -118,7 +117,7 @@ This is what allows the UI to mix natural language with structured cards and cha
 
 ## Test Coverage
 
-The backend has **237 tests** across all 8 application domains:
+The backend has a broad test suite across all application domains:
 
 - **Router tests:** authentication enforcement, cross-user access prevention, response contract validation
 - **Service tests:** calendar sync workflows, preference normalization, session lifecycle, message credit limits
@@ -128,8 +127,8 @@ The backend has **237 tests** across all 8 application domains:
 
 Quality gates enforced via `make backend-quality`:
 
-- **Black:** formatting (257 files)
-- **mypy:** static type checking (165 source files, zero errors)
+- **Black:** formatting
+- **mypy:** static type checking
 - **Django system check:** configuration validation
 
 Frontend tests cover calendar layout math, week navigation, settings rendering, chat session switching, message parsing, email draft extraction, and blocked time utilities.
@@ -348,8 +347,8 @@ Recommended scopes already configured by the backend:
 - `profile`
 - `https://www.googleapis.com/auth/calendar.readonly`
 - `https://www.googleapis.com/auth/calendar.events`
-- `https://www.googleapis.com/auth/gmail.send`
-- `https://www.googleapis.com/auth/gmail.compose`
+- `https://www.googleapis.com/auth/gmail.send` (optional / future)
+- `https://www.googleapis.com/auth/gmail.compose` (optional / future)
 
 ## Basic Smoke Test
 
@@ -367,7 +366,7 @@ After signing in with a test Google account:
 ### Backend
 
 ```bash
-make test              # run all 237 backend tests
+make test              # run backend tests
 make backend-quality   # format check + typecheck + Django system check
 make backend-eval-test # run agent eval snapshot tests
 ```

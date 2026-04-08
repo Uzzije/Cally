@@ -190,6 +190,7 @@
 
 .analytics-upgrade-dialog {
   width: min(460px, calc(100vw - 32px));
+  padding: 60px 32px 32px;
   background: #fffdfa;
   border: 1px solid rgba(27, 28, 26, 0.08);
   border-radius: 18px;
@@ -198,10 +199,16 @@
 
 .analytics-upgrade-dialog-copy {
   display: grid;
-  gap: 8px;
+  gap: 10px;
 }
 
 .analytics-upgrade-dialog-copy h2,
 .analytics-upgrade-dialog-copy p {
   margin: 0;
+}
+
+@media (max-width: 768px) {
+  .analytics-upgrade-dialog {
+    padding: 56px 24px 24px;
+  }
 }

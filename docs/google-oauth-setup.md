@@ -1,10 +1,10 @@
 # Google OAuth Setup
 
-**Purpose:** Configure Google OAuth for the Iteration 1 authentication slice.
+**Purpose:** Configure Google OAuth for local/dev authentication and calendar sync.
 
 ## Required backend env vars
 
-Set these in [backend/.env](/Users/uzomaemuchay/DEVELOPMENT/tenex_co_cal_app/backend/.env):
+Set these in `backend/.env`:
 
 - `GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_SECRET`
@@ -106,7 +106,7 @@ Important:
 
 ## Notes
 
-- We request `offline` access so Google can return a refresh token for later calendar sync and Gmail actions.
+- We request `offline` access so Google can return a refresh token for later calendar sync (and optional future Gmail send).
 - We enable PKCE and `FETCH_USERINFO` so Google profile data such as avatar URL is available more reliably.
 - Provider credentials are configured in settings via `SOCIALACCOUNT_PROVIDERS["google"]["APPS"]`, matching current allauth provider configuration guidance.
 

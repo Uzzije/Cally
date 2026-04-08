@@ -30,7 +30,7 @@ export function ChatComposer({
         aria-label="Chat message"
         className="chat-composer-input"
         disabled={disabled}
-        placeholder="Ask about your calendar…"
+        placeholder="Ask Cally anything about your calendar…"
         rows={3}
         value={value}
         onChange={(event) => onChange(event.target.value)}
