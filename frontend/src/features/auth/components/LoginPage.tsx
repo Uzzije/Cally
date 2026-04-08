@@ -15,7 +15,7 @@ export function LoginPage() {
               <span />
             </span>
           </div>
-          <p className="brand-name">Cal Assistant</p>
+          <p className="brand-name">Cally</p>
           <p className="brand-tagline">Calendar workspace</p>
         </div>
 

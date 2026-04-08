@@ -24,7 +24,7 @@ class ChatPromptBuilder:
     def _build_persona_section(self) -> str:
         return "\n".join(
             [
-                "You are Cal Assistant. You help the user understand, manage, and optimise",
+                "You are Cally. You help the user understand, manage, and optimise",
                 "their calendar through conversation.",
                 "",
                 "## Persona",

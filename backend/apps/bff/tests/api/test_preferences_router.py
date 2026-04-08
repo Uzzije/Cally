@@ -136,8 +136,12 @@ class PreferencesRouterTests(TestCase):
         existing_entry = TemporaryBlockedTime.objects.create(
             user=self.user,
             label="Original hold",
-            start_time=timezone.make_aware(datetime(2026, 4, 8, 14, 0), ZoneInfo("America/New_York")),
-            end_time=timezone.make_aware(datetime(2026, 4, 8, 14, 30), ZoneInfo("America/New_York")),
+            start_time=timezone.make_aware(
+                datetime(2026, 4, 8, 14, 0), ZoneInfo("America/New_York")
+            ),
+            end_time=timezone.make_aware(
+                datetime(2026, 4, 8, 14, 30), ZoneInfo("America/New_York")
+            ),
             timezone="America/New_York",
             expires_at=timezone.now() + timedelta(minutes=10),
         )

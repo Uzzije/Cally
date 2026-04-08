@@ -83,14 +83,18 @@ class GameLoopService:
 
             tool_result = self._execute_tool(step_result=step_result, tool_lookup=tool_lookup)
             tool_calls.append(tool_result)
-            history.append({
-                "role": "assistant",
-                "content": f"[Tool call: {tool_result.tool_name}({json.dumps(tool_result.tool_args)})]",
-            })
-            history.append({
-                "role": "user",
-                "content": f"[Tool result: {tool_result.result}]",
-            })
+            history.append(
+                {
+                    "role": "assistant",
+                    "content": f"[Tool call: {tool_result.tool_name}({json.dumps(tool_result.tool_args)})]",
+                }
+            )
+            history.append(
+                {
+                    "role": "user",
+                    "content": f"[Tool result: {tool_result.result}]",
+                }
+            )
             loop_events.append(
                 {
                     "type": "tool_executed",

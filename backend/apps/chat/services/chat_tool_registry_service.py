@@ -42,6 +42,7 @@ class ChatToolRegistryService:
 
     def build_tools(self, *, user, profile: ChatExecutionModeProfile) -> list[ToolDefinition]:
         """Return ToolDefinitions the agent may call, optionally including direct mutation tools."""
+
         @agent_tool(name="get_events", description="Get calendar events in an ISO datetime range.")
         def get_events(*, start: str, end: str) -> str:
             """

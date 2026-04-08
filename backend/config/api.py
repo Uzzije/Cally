@@ -7,7 +7,7 @@ from apps.bff.api.routers.calendar_router import router as calendar_router
 from apps.bff.api.routers.preferences_router import router as preferences_router
 
 api = NinjaAPI(
-    title="Cal Assistant API",
+    title="Cally API",
     version="1.0.0",
     urls_namespace="api",
 )

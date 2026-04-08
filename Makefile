@@ -1,6 +1,13 @@
-VENV_PYTHON := ~/DEVELOPMENT/virtualenv/t-cal-env/bin/python
-PIP := ~/DEVELOPMENT/virtualenv/t-cal-env/bin/pip
-MANAGE := $(VENV_PYTHON) backend/manage.py
+# Tooling runs inside your virtualenv. Make will try (in order):
+# - `$VIRTUAL_ENV/bin/python` (if you activated a venv)
+# - `./.venv/bin/python` (if you use a repo-local venv)
+# - `python3` (system python; may not have dev tools installed)
+#
+# You can always override explicitly, e.g.:
+# make lint-fix-and-check PYTHON=~/path/to/venv/bin/python PIP=~/path/to/venv/bin/pip
+PYTHON ?= $(shell if [ -n "$$VIRTUAL_ENV" ] && [ -x "$$VIRTUAL_ENV/bin/python" ]; then echo "$$VIRTUAL_ENV/bin/python"; elif [ -x "./.venv/bin/python" ]; then echo "./.venv/bin/python"; else echo "python3"; fi)
+PIP ?= $(shell if [ -n "$$VIRTUAL_ENV" ] && [ -x "$$VIRTUAL_ENV/bin/pip" ]; then echo "$$VIRTUAL_ENV/bin/pip"; elif [ -x "./.venv/bin/pip" ]; then echo "./.venv/bin/pip"; else echo "pip3"; fi)
+MANAGE := $(PYTHON) backend/manage.py
 COMPOSE := docker compose
 BACKEND_BLACK_PATHS := backend
 BACKEND_MYPY_PACKAGES := -p apps.analytics.models -p apps.analytics.services -p apps.accounts.services -p apps.bff.api.routers -p apps.bff.api.schemas -p apps.chat.services -p apps.calendars.services -p apps.core_agent.models -p apps.core_agent.providers -p apps.core_agent.services -p apps.core_agent.decorators -p apps.core_agent.apps -p apps.preferences.services -p apps.accounts.tests.models -p apps.accounts.tests.services -p apps.bff.tests.api -p apps.calendars.tests.models -p apps.calendars.tests.services -p apps.chat.tests.models -p apps.chat.tests.services -p apps.core.tests -p apps.core_agent.tests -p apps.preferences.tests.inngest -p apps.preferences.tests.models -p apps.preferences.tests.services
@@ -31,18 +38,27 @@ test:
 
 .PHONY: backend-format
 backend-format:
-	$(VENV_PYTHON) -m black $(BACKEND_BLACK_PATHS)
+	$(PYTHON) -m black $(BACKEND_BLACK_PATHS)
 
 .PHONY: backend-format-check
 backend-format-check:
-	$(VENV_PYTHON) -m black --check $(BACKEND_BLACK_PATHS)
+	$(PYTHON) -m black --check $(BACKEND_BLACK_PATHS)
 
 .PHONY: backend-typecheck
 backend-typecheck:
-	cd backend && $(VENV_PYTHON) -m mypy $(BACKEND_MYPY_PACKAGES)
+	cd backend && $(PYTHON) -m mypy $(BACKEND_MYPY_PACKAGES)
 
 .PHONY: backend-quality
 backend-quality: backend-format-check backend-typecheck check
+
+.PHONY: backend-fix
+backend-fix: backend-format
+
+.PHONY: backend-fix-and-check
+backend-fix-and-check: backend-format backend-typecheck check
+
+.PHONY: lint-fix-and-check
+lint-fix-and-check: backend-format backend-typecheck check
 
 .PHONY: backend-eval-test
 backend-eval-test:

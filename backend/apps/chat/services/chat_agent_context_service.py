@@ -41,7 +41,7 @@ class ChatAgentContextService:
 
         return {
             "workspace": {
-                "product": "Cal Assistant",
+                "product": "Cally",
                 "session_id": session.id,
                 "session_title": session.title,
                 "mode": execution_profile.workspace_mode,

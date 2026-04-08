@@ -1,6 +1,6 @@
-# Cal Assistant
+# Cally
 
-Cal Assistant is an AI assistant for your google calender.
+Cally is an AI assistant for your Google Calendar.
 
 It lets a signed-in user:
 

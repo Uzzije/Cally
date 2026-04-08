@@ -25,7 +25,7 @@ export function WorkspaceTopbar({
   return (
     <header className="workspace-topbar">
       <div className="workspace-brand-row">
-        <p className="workspace-wordmark">Cal Assistant</p>
+        <p className="workspace-wordmark">Cally</p>
         <nav aria-label="Primary navigation" className="workspace-primary-nav">
           <NavLink className={({ isActive }) => (isActive ? 'is-active' : '')} end to="/">
             Workspace

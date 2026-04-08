@@ -1,8 +1,8 @@
 # Architecture Blueprint
 
-**Project:** Cal Assistant
+**Project:** Cally
 **Status:** Engineering architecture guide
-**Derived from:** [product-spec.md](/Users/uzomaemuchay/DEVELOPMENT/tenex_co_cal_app/docs/product-spec.md), [frontend-implementation-guidelines.md](/Users/uzomaemuchay/DEVELOPMENT/tenex_co_cal_app/docs/frontend-implementation-guidelines.md), [backend-implementation-guidelines.md](/Users/uzomaemuchay/DEVELOPMENT/tenex_co_cal_app/docs/backend-implementation-guidelines.md)
+**Derived from:** [product-spec.md](docs/product-spec.md), [frontend-implementation-guidelines.md](docs/frontend-implementation-guidelines.md), [backend-implementation-guidelines.md](docs/backend-implementation-guidelines.md)
 
 ## 1. Purpose
 
