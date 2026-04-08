@@ -10,10 +10,6 @@ from apps.calendars.services.calendar_event_mutation_service import (
 )
 from apps.calendars.services.calendar_query_service import CalendarQueryService
 from apps.calendars.services.calendar_sync_service import CalendarSyncService
-from apps.calendars.services.calendar_webhook_sync_service import CalendarWebhookSyncService
-from apps.calendars.services.calendar_watch_registration_service import (
-    CalendarWatchRegistrationService,
-)
 from apps.calendars.services.google_calendar_client import (
     GoogleCalendarClient,
     GoogleCalendarClientError,
@@ -28,8 +24,6 @@ __all__ = [
     "CalendarEventMutationService",
     "CalendarQueryService",
     "CalendarSyncService",
-    "CalendarWebhookSyncService",
-    "CalendarWatchRegistrationService",
     "GoogleCalendarClient",
     "GoogleCalendarClientError",
 ]

@@ -30,12 +30,3 @@ class CalendarEventPayload:
     attendees: list[dict]
     organizer_email: str
     is_all_day: bool
-
-
-@dataclass(frozen=True)
-class GoogleCalendarWatchSubscription:
-    """Watch registration details needed to renew/stop webhook channels."""
-
-    channel_id: str
-    resource_id: str
-    expires_at: datetime | None

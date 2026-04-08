@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone as datetime_timezone
+from datetime import datetime, timedelta
 
 from django.conf import settings
 from django.utils import timezone
@@ -16,7 +16,6 @@ from apps.accounts.services.google_oauth_credential_service import (
 from apps.calendars.services.google_calendar_payloads import (
     CalendarEventPayload,
     GoogleCalendarDescriptor,
-    GoogleCalendarWatchSubscription,
 )
 from apps.calendars.services.google_calendar_event_normalizer import normalize_google_event
 from apps.core.types import AuthenticatedUser
@@ -297,18 +296,14 @@ class GoogleCalendarClient:
         sync_token: str | None = None,
     ) -> tuple[list[CalendarEventPayload], str]:
         """List and normalize events, supporting incremental sync via syncToken when available."""
+        is_incremental = sync_token is not None
         params: dict[str, str] = {
             "singleEvents": "true",
-            "showDeleted": "false",
+            "showDeleted": "true" if is_incremental else "false",
             "maxResults": "2500",
         }
-        if sync_token:
+        if is_incremental and sync_token is not None:
             params["syncToken"] = sync_token
-        else:
-            now = timezone.now()
-            params["timeMin"] = (now - timedelta(days=90)).isoformat()
-            params["timeMax"] = (now + timedelta(days=180)).isoformat()
-            params["orderBy"] = "startTime"
 
         all_items: list[dict] = []
         next_sync_token: str | None = None
@@ -341,8 +336,8 @@ class GoogleCalendarClient:
 
         if not next_sync_token:
             if sync_token is None:
-                logger.info(
-                    "Google Calendar bounded initial sync completed without nextSyncToken; falling back to full-range resyncs.",
+                logger.warning(
+                    "Google Calendar initial sync completed without nextSyncToken; incremental sync will not be available until next full sync.",
                     extra={
                         "calendar_id": calendar_id,
                         "event_count": len(all_items),
@@ -355,84 +350,12 @@ class GoogleCalendarClient:
                 ], ""
             raise GoogleCalendarClientError("Google calendar sync token was not returned.")
 
-        normalized_events = [
-            normalize_google_event(item) for item in all_items if item.get("status") != "cancelled"
-        ]
+        if is_incremental:
+            normalized_events = [normalize_google_event(item) for item in all_items]
+        else:
+            normalized_events = [
+                normalize_google_event(item)
+                for item in all_items
+                if item.get("status") != "cancelled"
+            ]
         return normalized_events, next_sync_token
-
-    def watch_calendar(
-        self,
-        user: AuthenticatedUser,
-        *,
-        calendar_id: str,
-        webhook_address: str,
-        channel_id: str,
-        channel_token: str,
-    ) -> GoogleCalendarWatchSubscription:
-        """Register a webhook watch channel for calendar event changes."""
-        payload: dict[str, object] = {
-            "id": channel_id,
-            "type": "web_hook",
-            "address": webhook_address,
-            "token": channel_token,
-        }
-        ttl_seconds = getattr(settings, "GOOGLE_CALENDAR_WEBHOOK_TTL_SECONDS", 0)
-        if ttl_seconds:
-            payload["params"] = {"ttl": str(ttl_seconds)}
-
-        response = self._request(
-            "POST",
-            f"{self.base_url}/calendars/{calendar_id}/events/watch",
-            user=user,
-            headers={"Content-Type": "application/json"},
-            json=payload,
-            timeout=20,
-        )
-        if not response.ok:
-            self._raise_for_google_error(
-                operation="Register calendar watch",
-                response=response,
-            )
-
-        response_payload = response.json()
-        resource_id = response_payload.get("resourceId")
-        if not resource_id:
-            raise GoogleCalendarClientError("Google watch response did not include a resourceId.")
-
-        return GoogleCalendarWatchSubscription(
-            channel_id=str(response_payload.get("id") or channel_id),
-            resource_id=str(resource_id),
-            expires_at=self._parse_google_expiration(response_payload.get("expiration")),
-        )
-
-    def _parse_google_expiration(self, raw_expiration: object) -> datetime | None:
-        if raw_expiration in (None, ""):
-            return None
-
-        try:
-            expiration_ms = int(str(raw_expiration))
-        except (TypeError, ValueError):
-            raise GoogleCalendarClientError(
-                "Google watch response included an invalid expiration value."
-            ) from None
-
-        return datetime.fromtimestamp(expiration_ms / 1000, tz=datetime_timezone.utc)
-
-    def stop_channel(self, user: AuthenticatedUser, *, channel_id: str, resource_id: str) -> None:
-        """Stop a previously registered webhook channel in Google."""
-        response = self._request(
-            "POST",
-            f"{self.base_url}/channels/stop",
-            user=user,
-            headers={"Content-Type": "application/json"},
-            json={
-                "id": channel_id,
-                "resourceId": resource_id,
-            },
-            timeout=20,
-        )
-        if not response.ok:
-            self._raise_for_google_error(
-                operation="Stop calendar watch channel",
-                response=response,
-            )

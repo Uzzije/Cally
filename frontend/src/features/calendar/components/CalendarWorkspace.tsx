@@ -69,6 +69,7 @@ export function CalendarWorkspace({
   const [calendarError, setCalendarError] = useState<string | null>(null)
   const [preferencesError, setPreferencesError] = useState<string | null>(null)
   const [displayTimezone, setDisplayTimezone] = useState<string | null>(null)
+  const [calendarTimezone, setCalendarTimezone] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [actionSuccess, setActionSuccess] = useState<string | null>(null)
   const [isChatExpanded, setIsChatExpanded] = useState(false)
@@ -81,6 +82,9 @@ export function CalendarWorkspace({
     const eventsResponse = await fetchCalendarEvents(range)
     setSyncStatus(nextSyncStatus)
     setEvents(eventsResponse.events)
+    if (eventsResponse.calendar?.timezone) {
+      setCalendarTimezone(eventsResponse.calendar.timezone)
+    }
     setRequiresGoogleReconnect(false)
     setGoogleReconnectMessage(null)
     setCalendarError(null)
@@ -125,6 +129,9 @@ export function CalendarWorkspace({
           const eventsResponse = await fetchCalendarEvents(range)
           setSyncStatus(nextSyncStatus)
           setEvents(eventsResponse.events)
+          if (eventsResponse.calendar?.timezone) {
+            setCalendarTimezone(eventsResponse.calendar.timezone)
+          }
           setRequiresGoogleReconnect(false)
           setGoogleReconnectMessage(null)
         }
@@ -219,7 +226,7 @@ export function CalendarWorkspace({
   const csrfToken = getCookie('csrftoken')
   const activeTimeZone =
     displayTimezone ||
-    events.find((event) => Boolean(event.timezone))?.timezone ||
+    calendarTimezone ||
     Intl.DateTimeFormat().resolvedOptions().timeZone ||
     'UTC'
   const initialCalendarScrollTop = getInitialCalendarScrollTop(events, activeTimeZone)

@@ -41,13 +41,13 @@ def normalize_google_event(payload: dict) -> CalendarEventPayload:
         raise ValueError("Google event payload is missing a start or end value")
 
     return CalendarEventPayload(
-        google_event_id=payload["id"],
-        title=payload.get("summary") or "Untitled event",
+        google_event_id=payload["id"][:255],
+        title=(payload.get("summary") or "Untitled event")[:255],
         description=payload.get("description") or "",
         start_time=_parse_google_datetime(start_raw, timezone_name),
         end_time=_parse_google_datetime(end_raw, timezone_name),
         timezone=timezone_name,
-        location=payload.get("location") or "",
+        location=(payload.get("location") or "")[:255],
         status=payload.get("status") or "",
         attendees=payload.get("attendees") or [],
         organizer_email=(payload.get("organizer") or {}).get("email") or "",

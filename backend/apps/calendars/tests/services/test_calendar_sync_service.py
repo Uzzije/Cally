@@ -4,7 +4,7 @@ from unittest.mock import Mock
 from allauth.socialaccount.models import SocialAccount, SocialApp, SocialToken
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
-from django.test import TestCase, override_settings
+from django.test import TestCase
 from django.utils import timezone
 
 from apps.accounts.models.google_oauth_credential import GoogleOAuthCredential
@@ -17,7 +17,6 @@ from apps.calendars.models.event import Event
 from apps.calendars.services.google_calendar_payloads import (
     CalendarEventPayload,
     GoogleCalendarDescriptor,
-    GoogleCalendarWatchSubscription,
 )
 from apps.calendars.services.calendar_sync_service import (
     CalendarSyncError,
@@ -75,41 +74,6 @@ class FakeGoogleCalendarClient:
             self.sync_token,
         )
 
-    def watch_calendar(
-        self,
-        user,
-        *,
-        calendar_id: str,
-        webhook_address: str,
-        channel_id: str,
-        channel_token: str,
-    ):
-        self.calls.append(
-            {
-                "method": "watch_calendar",
-                "user_id": user.id,
-                "calendar_id": calendar_id,
-                "webhook_address": webhook_address,
-                "channel_id": channel_id,
-                "channel_token": channel_token,
-            }
-        )
-        return GoogleCalendarWatchSubscription(
-            channel_id=f"channel-{calendar_id}",
-            resource_id=f"resource-{calendar_id}",
-            expires_at=timezone.now() + timedelta(days=7),
-        )
-
-    def stop_channel(self, user, *, channel_id: str, resource_id: str):
-        self.calls.append(
-            {
-                "method": "stop_channel",
-                "user_id": user.id,
-                "channel_id": channel_id,
-                "resource_id": resource_id,
-            }
-        )
-
 
 class ErroringGoogleCalendarClient(FakeGoogleCalendarClient):
     def get_primary_calendar(self, user):
@@ -124,17 +88,37 @@ class EventListErroringGoogleCalendarClient(FakeGoogleCalendarClient):
         raise RuntimeError("google error")
 
 
-class WatchErroringGoogleCalendarClient(FakeGoogleCalendarClient):
-    def watch_calendar(
-        self,
-        user,
-        *,
-        calendar_id: str,
-        webhook_address: str,
-        channel_id: str,
-        channel_token: str,
-    ):
-        raise RuntimeError("watch error")
+class CancelledEventGoogleCalendarClient(FakeGoogleCalendarClient):
+    """Returns a cancelled event payload during incremental sync to simulate a Google deletion."""
+
+    def list_events(self, user, *, calendar_id: str, sync_token: str | None = None):
+        self.calls.append(
+            {
+                "method": "list_events",
+                "user_id": user.id,
+                "calendar_id": calendar_id,
+                "sync_token": sync_token,
+            }
+        )
+        start_time = timezone.now()
+        return (
+            [
+                CalendarEventPayload(
+                    google_event_id="google-event-1",
+                    title="Cancelled Meeting",
+                    description="",
+                    start_time=start_time,
+                    end_time=start_time + timedelta(hours=1),
+                    timezone="America/New_York",
+                    location="",
+                    status="cancelled",
+                    attendees=[],
+                    organizer_email="",
+                    is_all_day=False,
+                )
+            ],
+            self.sync_token,
+        )
 
 
 class CalendarSyncServiceTests(TestCase):
@@ -244,77 +228,64 @@ class CalendarSyncServiceTests(TestCase):
         with self.assertRaises(CalendarSyncError):
             service.sync_primary_calendar(self.user)
 
-    @override_settings(
-        GOOGLE_CALENDAR_WEBHOOK_ADDRESS="https://example.com/api/v1/calendar/webhook/google"
-    )
-    def test_first_sync_registers_google_watch_metadata_when_webhooks_enabled(self):
-        service = CalendarSyncService(client=FakeGoogleCalendarClient())
-
-        result = service.sync_primary_calendar(self.user)
-
-        calendar = Calendar.objects.get(pk=result.calendar_id)
-        self.assertEqual(calendar.webhook_channel_id, "channel-primary-calendar-id")
-        self.assertEqual(calendar.webhook_resource_id, "resource-primary-calendar-id")
-        self.assertTrue(calendar.webhook_channel_token)
-        self.assertIsNotNone(calendar.webhook_expires_at)
-
-    @override_settings(
-        GOOGLE_CALENDAR_WEBHOOK_ADDRESS="https://example.com/api/v1/calendar/webhook/google"
-    )
-    def test_repeat_sync_keeps_existing_watch_when_it_is_not_near_expiry(self):
-        initial_service = CalendarSyncService(client=FakeGoogleCalendarClient())
+    def test_incremental_sync_deletes_cancelled_events(self):
+        initial_service = CalendarSyncService(
+            client=FakeGoogleCalendarClient(sync_token="sync-token-1")
+        )
         initial_service.sync_primary_calendar(self.user)
 
-        client = FakeGoogleCalendarClient()
-        CalendarSyncService(client=client).sync_primary_calendar(self.user)
+        calendar = Calendar.objects.get(user=self.user, google_calendar_id="primary-calendar-id")
+        self.assertEqual(Event.objects.filter(calendar=calendar).count(), 1)
 
-        self.assertEqual(
-            [call["method"] for call in client.calls],
-            ["get_primary_calendar", "list_events"],
+        cancelled_client = CancelledEventGoogleCalendarClient(sync_token="sync-token-2")
+        CalendarSyncService(client=cancelled_client).sync_primary_calendar(self.user)
+
+        self.assertEqual(Event.objects.filter(calendar=calendar).count(), 0)
+
+    def test_incremental_sync_ignores_cancelled_event_not_in_database(self):
+        initial_service = CalendarSyncService(
+            client=FakeGoogleCalendarClient(sync_token="sync-token-1")
         )
+        initial_service.sync_primary_calendar(self.user)
 
-    @override_settings(
-        GOOGLE_CALENDAR_WEBHOOK_ADDRESS="https://example.com/api/v1/calendar/webhook/google"
-    )
-    def test_repeat_sync_renews_watch_when_existing_watch_is_near_expiry(self):
-        initial_service = CalendarSyncService(client=FakeGoogleCalendarClient())
-        result = initial_service.sync_primary_calendar(self.user)
-        calendar = Calendar.objects.get(pk=result.calendar_id)
-        calendar.webhook_channel_id = "old-channel"
-        calendar.webhook_resource_id = "old-resource"
-        calendar.webhook_channel_token = "old-token"
-        calendar.webhook_expires_at = timezone.now() + timedelta(hours=1)
-        calendar.save(
-            update_fields=[
-                "webhook_channel_id",
-                "webhook_resource_id",
-                "webhook_channel_token",
-                "webhook_expires_at",
-                "updated_at",
-            ]
+        Event.objects.filter(google_event_id="google-event-1").delete()
+
+        cancelled_client = CancelledEventGoogleCalendarClient(sync_token="sync-token-2")
+        result = CalendarSyncService(client=cancelled_client).sync_primary_calendar(self.user)
+
+        self.assertEqual(result.event_count, 0)
+
+    def test_full_sync_removes_stale_events_not_returned_by_google(self):
+        """Events in the DB that Google no longer returns during a full sync should be deleted."""
+        initial_service = CalendarSyncService(
+            client=FakeGoogleCalendarClient(sync_token="sync-token-1")
         )
+        initial_service.sync_primary_calendar(self.user)
 
-        client = FakeGoogleCalendarClient(sync_token="sync-token-2")
-        CalendarSyncService(client=client).sync_primary_calendar(self.user)
-
-        self.assertEqual(
-            [call["method"] for call in client.calls],
-            ["get_primary_calendar", "list_events", "watch_calendar", "stop_channel"],
+        calendar = Calendar.objects.get(user=self.user, google_calendar_id="primary-calendar-id")
+        Event.objects.create(
+            calendar=calendar,
+            google_event_id="orphaned-event",
+            title="Deleted on Google",
+            start_time=timezone.now(),
+            end_time=timezone.now() + timedelta(hours=1),
+            timezone="America/New_York",
+            status="confirmed",
         )
-        self.assertEqual(client.calls[-1]["channel_id"], "old-channel")
-        refreshed_calendar = Calendar.objects.get(pk=result.calendar_id)
-        self.assertEqual(refreshed_calendar.sync_token, "sync-token-2")
-        self.assertEqual(refreshed_calendar.webhook_channel_id, "channel-primary-calendar-id")
+        self.assertEqual(Event.objects.filter(calendar=calendar).count(), 2)
 
-    @override_settings(
-        GOOGLE_CALENDAR_WEBHOOK_ADDRESS="https://example.com/api/v1/calendar/webhook/google"
-    )
-    def test_sync_succeeds_when_watch_registration_fails(self):
-        service = CalendarSyncService(client=WatchErroringGoogleCalendarClient())
+        calendar.sync_token = ""
+        calendar.save()
 
-        result = service.sync_primary_calendar(self.user)
+        repeat_service = CalendarSyncService(
+            client=FakeGoogleCalendarClient(sync_token="sync-token-2")
+        )
+        repeat_service.sync_primary_calendar(self.user)
 
-        calendar = Calendar.objects.get(pk=result.calendar_id)
-        self.assertEqual(result.event_count, 1)
-        self.assertEqual(calendar.sync_token, "sync-token-1")
-        self.assertEqual(calendar.webhook_channel_id, "")
+        self.assertEqual(Event.objects.filter(calendar=calendar).count(), 1)
+        self.assertTrue(
+            Event.objects.filter(calendar=calendar, google_event_id="google-event-1").exists()
+        )
+        self.assertFalse(
+            Event.objects.filter(calendar=calendar, google_event_id="orphaned-event").exists()
+        )

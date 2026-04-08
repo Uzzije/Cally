@@ -18,6 +18,7 @@ export type CalendarResponse = {
     id: number
     name: string
     is_primary: boolean
+    timezone: string
     last_synced_at: string | null
   } | null
   events: CalendarEvent[]

@@ -51,18 +51,11 @@ Set these backend env vars in Render:
 - `GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_SECRET`
 - `GOOGLE_TOKEN_ENCRYPTION_KEY`
-- `GOOGLE_CALENDAR_WEBHOOK_TTL_SECONDS=604800`
-
-Optional override:
-
-- `GOOGLE_CALENDAR_WEBHOOK_ADDRESS`
 
 Notes:
 
-- If `GOOGLE_CALENDAR_WEBHOOK_ADDRESS` is blank, the backend derives the webhook URL as `<BACKEND_PUBLIC_BASE_URL>/api/v1/calendar/webhook/google`.
-- In production, the webhook URL must be public `https://` and cannot point at `localhost`.
 - `GOOGLE_TOKEN_ENCRYPTION_KEY` should be a Fernet-compatible base64 key. If blank, the app derives an encryption key from Django `SECRET_KEY`.
-- If watch registration fails or a watch expires, calendar sync still falls back safely to manual or polling-friendly refresh flows until the next successful renewal.
+- Calendar sync is pull-based. Users refresh on demand and the backend does not register Google push webhooks.
 
 Cookie policy defaults to `Lax`. If browser testing on Render shows the frontend cannot send the session reliably to the backend, switch both of these to `None`:
 

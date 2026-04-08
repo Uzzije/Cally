@@ -32,8 +32,8 @@ export function AppRouter() {
   if (hasError) {
     return (
       <ErrorScreen
-        title="The backend session could not be loaded"
-        message="Check that the Django backend is running and try again."
+        title="Could not load session"
+        message="Please try again, by refreshing the page, or contact support if the problem persists."
         onRetry={() => {
           void loadSession()
         }}

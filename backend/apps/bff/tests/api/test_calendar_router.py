@@ -1,6 +1,5 @@
 from datetime import timedelta
 from unittest.mock import patch
-from typing import Any, cast
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
@@ -183,48 +182,3 @@ class CalendarRouterTests(TestCase):
             },
         )
         service_class.return_value.request_primary_calendar_sync.assert_not_called()
-
-    @patch("apps.bff.api.routers.calendar_router.CalendarWebhookSyncService")
-    def test_google_webhook_endpoint_accepts_valid_notification(self, service_class):
-        service_class.return_value.handle_notification.return_value = type(
-            "WebhookResult",
-            (),
-            {"accepted": True, "sync_requested": True},
-        )()
-
-        response = cast(Any, self.client).post(
-            "/api/v1/calendar/webhook/google",
-            HTTP_HOST="localhost",
-            **{
-                "HTTP_X_GOOG_CHANNEL_ID": "channel-123",
-                "HTTP_X_GOOG_CHANNEL_TOKEN": "secret-token",
-                "HTTP_X_GOOG_RESOURCE_ID": "resource-456",
-                "HTTP_X_GOOG_RESOURCE_STATE": "exists",
-            },
-        )
-
-        self.assertEqual(response.status_code, 202)
-        service_class.return_value.handle_notification.assert_called_once()
-
-    @patch("apps.bff.api.routers.calendar_router.CalendarWebhookSyncService")
-    def test_google_webhook_endpoint_rejects_invalid_notification(self, service_class):
-        from apps.calendars.services.calendar_webhook_sync_service import (
-            CalendarWebhookAuthenticationError,
-        )
-
-        service_class.return_value.handle_notification.side_effect = (
-            CalendarWebhookAuthenticationError("Invalid Google calendar webhook notification.")
-        )
-
-        response = cast(Any, self.client).post(
-            "/api/v1/calendar/webhook/google",
-            HTTP_HOST="localhost",
-            **{
-                "HTTP_X_GOOG_CHANNEL_ID": "channel-123",
-                "HTTP_X_GOOG_CHANNEL_TOKEN": "bad-token",
-                "HTTP_X_GOOG_RESOURCE_ID": "resource-456",
-                "HTTP_X_GOOG_RESOURCE_STATE": "exists",
-            },
-        )
-
-        self.assertEqual(response.status_code, 401)

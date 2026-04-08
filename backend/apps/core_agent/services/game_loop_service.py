@@ -13,6 +13,8 @@ from apps.core_agent.providers.agent_provider import AgentProvider
 
 logger = logging.getLogger(__name__)
 
+MAX_LOOP_ITERATIONS = 4
+
 
 class GameLoopExceededMaxIterationsError(RuntimeError):
     def __init__(self, *, tool_calls: list[ToolExecutionResult], loop_events: list[dict]) -> None:
@@ -22,7 +24,9 @@ class GameLoopExceededMaxIterationsError(RuntimeError):
 
 
 class GameLoopService:
-    def __init__(self, *, provider: AgentProvider, max_iterations: int = 4) -> None:
+    def __init__(
+        self, *, provider: AgentProvider, max_iterations: int = MAX_LOOP_ITERATIONS
+    ) -> None:
         self.provider = provider
         self.max_iterations = max_iterations
 
