@@ -24,9 +24,11 @@ class CalendarWebhookSyncResult:
 
 class CalendarWebhookSyncService:
     def __init__(self, trigger_service: CalendarSyncTriggerService | None = None) -> None:
+        """Authenticate and handle Google Calendar webhook notifications, triggering resyncs when needed."""
         self.trigger_service = trigger_service or CalendarSyncTriggerService()
 
     def handle_notification(self, *, headers) -> CalendarWebhookSyncResult:
+        """Validate webhook headers and request a background sync for relevant resource states."""
         channel_id = self._get_header(headers, "X-Goog-Channel-ID")
         channel_token = self._get_header(headers, "X-Goog-Channel-Token")
         resource_id = self._get_header(headers, "X-Goog-Resource-ID")

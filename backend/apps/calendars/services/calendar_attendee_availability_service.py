@@ -25,6 +25,7 @@ class CalendarAttendeeAvailabilityService:
         *,
         google_calendar_client: GoogleCalendarClient | None = None,
     ) -> None:
+        """Look up attendee free/busy windows, degrading gracefully on Google API failures."""
         self.google_calendar_client = google_calendar_client or GoogleCalendarClient()
 
     def lookup_attendee_busy_ranges(
@@ -35,6 +36,7 @@ class CalendarAttendeeAvailabilityService:
         start: datetime,
         end: datetime,
     ) -> AttendeeAvailabilityResult:
+        """Return busy ranges per attendee for a proposed window, plus a degraded flag on partial failure."""
         normalized_emails = sorted(
             {
                 email.strip().lower()

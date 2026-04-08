@@ -9,9 +9,11 @@ logger = logging.getLogger(__name__)
 
 class TemporaryBlockedTimeTriggerService:
     def __init__(self, client: inngest.Inngest | None = None) -> None:
+        """Emit background cleanup requests for expiring temporary blocked times."""
         self.client = client or inngest_client
 
     def request_expiry_cleanup(self, *, user_id: int, public_ids: list[str]) -> list[str]:
+        """Request async expiry cleanup for the given blocked time ids, returning emitted event ids."""
         if not public_ids:
             return []
 

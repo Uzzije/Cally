@@ -104,7 +104,7 @@ class ChatToolRegistryServiceTests(TestCase):
         self.assertEqual(preferences["blocked_times"][0]["id"], "focus-block")
 
     def test_get_preferences_exposes_active_temporary_blocked_times(self):
-        TemporaryBlockedTime.objects.create(
+        blocked_time = TemporaryBlockedTime.objects.create(
             user=self.user,
             label="Short-term hold",
             start_time=timezone.now(),
@@ -122,6 +122,79 @@ class ChatToolRegistryServiceTests(TestCase):
 
         self.assertEqual(len(payload["temp_blocked_times"]), 1)
         self.assertEqual(payload["temp_blocked_times"][0]["label"], "Short-term hold")
+        self.assertEqual(payload["temp_blocked_times"][0]["id"], blocked_time.public_id)
+
+    def test_get_temp_blocked_times_returns_requested_public_ids(self):
+        first_block = TemporaryBlockedTime.objects.create(
+            user=self.user,
+            label="First hold",
+            start_time=timezone.now(),
+            end_time=timezone.now() + timedelta(minutes=30),
+            timezone="America/New_York",
+            expires_at=timezone.now() + timedelta(minutes=30),
+        )
+        TemporaryBlockedTime.objects.create(
+            user=self.user,
+            label="Second hold",
+            start_time=timezone.now() + timedelta(hours=1),
+            end_time=timezone.now() + timedelta(hours=1, minutes=30),
+            timezone="America/New_York",
+            expires_at=timezone.now() + timedelta(minutes=30),
+        )
+        profile = ChatExecutionModeProfileService().from_execution_mode(
+            execution_mode=ExecutionMode.CONFIRM
+        )
+        tools = ChatToolRegistryService().build_tools(user=self.user, profile=profile)
+        get_temp_blocked_times = next(
+            tool for tool in tools if tool.name == "get_temp_blocked_times"
+        )
+
+        payload = json.loads(get_temp_blocked_times.handler(public_ids=[first_block.public_id]))
+
+        self.assertEqual(payload["requested_public_ids"], [first_block.public_id])
+        self.assertEqual(len(payload["temp_blocked_times"]), 1)
+        self.assertEqual(payload["temp_blocked_times"][0]["id"], first_block.public_id)
+
+    def test_delete_temp_blocked_times_removes_requested_entries(self):
+        first_block = TemporaryBlockedTime.objects.create(
+            user=self.user,
+            label="First hold",
+            start_time=timezone.now(),
+            end_time=timezone.now() + timedelta(minutes=30),
+            timezone="America/New_York",
+            expires_at=timezone.now() + timedelta(minutes=30),
+        )
+        second_block = TemporaryBlockedTime.objects.create(
+            user=self.user,
+            label="Second hold",
+            start_time=timezone.now() + timedelta(hours=1),
+            end_time=timezone.now() + timedelta(hours=1, minutes=30),
+            timezone="America/New_York",
+            expires_at=timezone.now() + timedelta(minutes=30),
+        )
+        profile = ChatExecutionModeProfileService().from_execution_mode(
+            execution_mode=ExecutionMode.CONFIRM
+        )
+        tools = ChatToolRegistryService().build_tools(user=self.user, profile=profile)
+        delete_temp_blocked_times = next(
+            tool for tool in tools if tool.name == "delete_temp_blocked_times"
+        )
+
+        payload = json.loads(
+            delete_temp_blocked_times.handler(
+                public_ids=[first_block.public_id, "missing-public-id"]
+            )
+        )
+
+        self.assertEqual(payload["deleted_public_ids"], [first_block.public_id])
+        self.assertEqual(payload["missing_public_ids"], ["missing-public-id"])
+        self.assertEqual(
+            [entry["id"] for entry in payload["remaining_temp_blocked_times"]],
+            [second_block.public_id],
+        )
+        self.assertFalse(
+            TemporaryBlockedTime.objects.filter(public_id=first_block.public_id).exists()
+        )
 
     def test_build_tools_uses_decorator_defined_metadata(self):
         profile = ChatExecutionModeProfileService().from_execution_mode(
@@ -147,6 +220,14 @@ class ChatToolRegistryServiceTests(TestCase):
             build_email_draft.handler(
                 to=["joe@example.com"],
                 cc=["manager@example.com"],
+                suggested_times=[
+                    {
+                        "date": "2026-04-14",
+                        "start": "14:00",
+                        "end": "14:30",
+                        "timezone": "America/New_York",
+                    }
+                ],
                 draft_markdown=(
                     "Subject: Quick sync this week?\n\n"
                     "Hi Joe,\n\nCould we find 30 minutes this week?\n"
@@ -159,6 +240,47 @@ class ChatToolRegistryServiceTests(TestCase):
         self.assertEqual(payload["cc"], ["manager@example.com"])
         self.assertEqual(payload["status"], "draft")
         self.assertEqual(payload["subject"], "Quick sync this week?")
+        self.assertEqual(payload["suggested_times"][0]["timezone"], "America/New_York")
+        self.assertEqual(
+            build_email_draft.input_schema["properties"]["suggested_times"]["type"],
+            "array",
+        )
+
+    def test_build_email_draft_handler_wraps_single_suggested_time_object(self):
+        profile = ChatExecutionModeProfileService().from_execution_mode(
+            execution_mode=ExecutionMode.DRAFT_ONLY
+        )
+
+        tools = ChatToolRegistryService().build_tools(user=self.user, profile=profile)
+
+        build_email_draft = next(tool for tool in tools if tool.name == "build_email_draft")
+        payload = json.loads(
+            build_email_draft.handler(
+                to=["joe@example.com"],
+                suggested_times={
+                    "date": "2026-04-14",
+                    "start": "14:00",
+                    "end": "14:30",
+                    "timezone": "America/New_York",
+                },
+                draft_markdown=(
+                    "Subject: Quick sync this week?\n\n"
+                    "Hi Joe,\n\nCould we find 30 minutes this week?\n"
+                ),
+            )
+        )
+
+        self.assertEqual(
+            payload["suggested_times"],
+            [
+                {
+                    "date": "2026-04-14",
+                    "start": "14:00",
+                    "end": "14:30",
+                    "timezone": "America/New_York",
+                }
+            ],
+        )
 
     def test_build_tools_registers_query_analytics_tool(self):
         profile = ChatExecutionModeProfileService().from_execution_mode(
@@ -177,7 +299,7 @@ class ChatToolRegistryServiceTests(TestCase):
         self.assertEqual(payload["chart_block"]["type"], "chart")
         self.assertEqual(payload["chart_block"]["chart_type"], "bar")
 
-    def test_build_tools_does_not_register_direct_mutation_tool_for_confirm_mode(self):
+    def test_build_tools_does_not_register_calendar_event_creation_tool_for_confirm_mode(self):
         profile = ChatExecutionModeProfileService().from_execution_mode(
             execution_mode=ExecutionMode.CONFIRM
         )

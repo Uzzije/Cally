@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 
 import { WorkspacePageHeader } from '../../../app/layout/WorkspacePageHeader'
 import { WorkspaceTopbar } from '../../../app/layout/WorkspaceTopbar'
-import { logoutUser } from '../../auth/api/authClient'
+import { getGoogleLoginUrl, logoutUser } from '../../auth/api/authClient'
 import type { AuthSession } from '../../auth/types'
 import type { MessageCreditStatus } from '../../chat/types'
 import type { BlockedTimeEntry, ExecutionMode, TempBlockedTimeEntry } from '../../settings/types'
@@ -11,6 +11,7 @@ import {
   fetchPreferences,
 } from '../../settings/api/settingsClient'
 import {
+  CalendarApiError,
   fetchCalendarEvents,
   fetchCalendarSyncStatus,
   triggerCalendarSync,
@@ -41,7 +42,9 @@ type CalendarWorkspaceProps = {
   messageCredits: MessageCreditStatus | null
   session: AuthSession
   tempBlockedTimes: TempBlockedTimeEntry[]
-  onAddTempBlockedTimes: (entries: TempBlockedTimeEntry[]) => Promise<void>
+  onAddTempBlockedTimes: (
+    entries: TempBlockedTimeEntry[],
+  ) => Promise<{ createdCount: number; updatedCount: number }>
   onRefreshMessageCredits: () => Promise<void>
   onRefreshSession: () => Promise<void>
 }
@@ -67,7 +70,10 @@ export function CalendarWorkspace({
   const [preferencesError, setPreferencesError] = useState<string | null>(null)
   const [displayTimezone, setDisplayTimezone] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null)
   const [isChatExpanded, setIsChatExpanded] = useState(false)
+  const [requiresGoogleReconnect, setRequiresGoogleReconnect] = useState(false)
+  const [googleReconnectMessage, setGoogleReconnectMessage] = useState<string | null>(null)
 
   const refreshCalendarWorkspace = async () => {
     const nextSyncStatus = await fetchCalendarSyncStatus()
@@ -75,7 +81,21 @@ export function CalendarWorkspace({
     const eventsResponse = await fetchCalendarEvents(range)
     setSyncStatus(nextSyncStatus)
     setEvents(eventsResponse.events)
+    setRequiresGoogleReconnect(false)
+    setGoogleReconnectMessage(null)
     setCalendarError(null)
+  }
+
+  const applyGoogleReconnectRequired = (
+    error: CalendarApiError,
+    fallbackMessage: string,
+  ) => {
+    const nextMessage = error.message || fallbackMessage
+    setRequiresGoogleReconnect(true)
+    setGoogleReconnectMessage(nextMessage)
+    setIsChatExpanded(false)
+    setActionError(null)
+    setActionSuccess(null)
   }
 
   useEffect(() => {
@@ -88,6 +108,8 @@ export function CalendarWorkspace({
 
       setIsCalendarLoading(true)
       setCalendarError(null)
+      setActionError(null)
+      setActionSuccess(null)
 
       try {
         let nextSyncStatus = await fetchCalendarSyncStatus()
@@ -103,9 +125,20 @@ export function CalendarWorkspace({
           const eventsResponse = await fetchCalendarEvents(range)
           setSyncStatus(nextSyncStatus)
           setEvents(eventsResponse.events)
+          setRequiresGoogleReconnect(false)
+          setGoogleReconnectMessage(null)
         }
-      } catch {
+      } catch (error) {
         if (!cancelled) {
+          if (error instanceof CalendarApiError && error.code === 'google_reauth_required') {
+            applyGoogleReconnectRequired(
+              error,
+              'Reconnect Google Calendar to load your workspace.',
+            )
+            setCalendarError('Reconnect Google Calendar to load your workspace.')
+            return
+          }
+
           setCalendarError('We could not load your weekly calendar right now.')
         }
       } finally {
@@ -190,9 +223,11 @@ export function CalendarWorkspace({
     Intl.DateTimeFormat().resolvedOptions().timeZone ||
     'UTC'
   const initialCalendarScrollTop = getInitialCalendarScrollTop(events, activeTimeZone)
+  const googleReconnectUrl = getGoogleLoginUrl()
 
   const handleLogout = async () => {
     setActionError(null)
+    setActionSuccess(null)
 
     try {
       await logoutUser()
@@ -204,12 +239,20 @@ export function CalendarWorkspace({
 
   const handleRetrySync = async () => {
     setActionError(null)
+    setActionSuccess(null)
     setIsSyncing(true)
 
     try {
       await triggerCalendarSync(csrfToken)
+      setRequiresGoogleReconnect(false)
+      setGoogleReconnectMessage(null)
       await refreshCalendarWorkspace()
-    } catch {
+    } catch (error) {
+      if (error instanceof CalendarApiError && error.code === 'google_reauth_required') {
+        applyGoogleReconnectRequired(error, 'Reconnect Google Calendar to restore sync.')
+        return
+      }
+
       setActionError('We could not refresh the calendar sync. Please try again.')
     } finally {
       setIsSyncing(false)
@@ -218,6 +261,7 @@ export function CalendarWorkspace({
 
   const handleCopyEmailDraft = async (block: EmailDraftBlock) => {
     setActionError(null)
+    setActionSuccess(null)
 
     try {
       await navigator.clipboard.writeText(buildEmailDraftClipboardText(block))
@@ -230,14 +274,30 @@ export function CalendarWorkspace({
     const nextEntries = extractTempBlockedTimesFromEmailDraft(block)
     if (nextEntries.length === 0) {
       setActionError('We could not find any suggested times to block in that draft.')
+      setActionSuccess(null)
       return
     }
 
     try {
       setActionError(null)
-      await onAddTempBlockedTimes(nextEntries)
+      const result = await onAddTempBlockedTimes(nextEntries)
+
+      if (result.updatedCount > 0 && result.createdCount === 0) {
+        setActionSuccess('Updated existing temporary hold for the same date and time.')
+        return
+      }
+
+      if (result.updatedCount > 0) {
+        setActionSuccess(
+          `Saved temporary holds. ${result.updatedCount} existing hold${result.updatedCount === 1 ? '' : 's'} updated.`,
+        )
+        return
+      }
+
+      setActionSuccess('Saved temporary hold to your workspace.')
     } catch {
       setActionError('We could not save those temporary blocked times right now.')
+      setActionSuccess(null)
     }
   }
 
@@ -263,11 +323,24 @@ export function CalendarWorkspace({
         <section className="workspace-main-column">
           <WorkspacePageHeader
             eyebrow="Workspace"
-            intro="Review your synced week, inspect proposals, and explicitly approve the safe calendar changes you want to keep."
+            intro="Your calendar, synced and up to date. Ask Cally anything or review suggested changes before they happen."
             title="Your workspace"
           />
 
           {actionError ? <p className="error-text">{actionError}</p> : null}
+          {actionSuccess ? <p className="success-text">{actionSuccess}</p> : null}
+          {requiresGoogleReconnect && googleReconnectMessage ? (
+            <section className="paper-panel calendar-reconnect-notice">
+              <div className="calendar-reconnect-copy">
+                <p className="eyebrow">Reconnect Google</p>
+                <h2>Google Calendar needs to be reconnected</h2>
+                <p>{googleReconnectMessage}</p>
+              </div>
+              <a className="primary-button button-md" href={googleReconnectUrl}>
+                Reconnect Google Calendar
+              </a>
+            </section>
+          ) : null}
 
           <section className={`calendar-workspace${isChatExpanded ? ' is-chat-expanded' : ''}`}>
             <div className="calendar-main">
@@ -314,7 +387,7 @@ export function CalendarWorkspace({
                     </button>
                     <button
                       className="primary-button button-md"
-                      disabled={isSyncing}
+                      disabled={isSyncing || requiresGoogleReconnect}
                       onClick={handleRetrySync}
                     >
                       {isSyncing ? 'Syncing…' : 'Sync Calendar'}
@@ -378,6 +451,7 @@ export function CalendarWorkspace({
             aria-expanded={isChatExpanded}
             aria-label={isChatExpanded ? 'Close Ask Cally' : 'Open Ask Cally'}
             className={`primary-button button-md chat-launcher${isChatExpanded ? ' is-open' : ''}`}
+            disabled={requiresGoogleReconnect}
             onClick={() => setIsChatExpanded((current) => !current)}
             type="button"
           >
@@ -415,7 +489,6 @@ export function CalendarWorkspace({
             </button>
             <EventDetailsPanel
               event={selectedEvent}
-              onboardingCompleted={session.user.onboarding_completed}
               timeZone={activeTimeZone}
             />
           </div>

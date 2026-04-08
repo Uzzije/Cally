@@ -1,4 +1,5 @@
 import type { EmailDraftBlock as EmailDraftBlockType } from '../types'
+import { hasSuggestedTimesInEmailDraft } from '../utils/emailDraft'
 
 
 function getDraftStatusLabel(block: EmailDraftBlockType) {
@@ -18,6 +19,8 @@ export function EmailDraftBlock({
   onBlockSuggestedTimes?: (block: EmailDraftBlockType) => void
   onCopy?: (block: EmailDraftBlockType) => void
 }) {
+  const canBlockSuggestedTimes = hasSuggestedTimesInEmailDraft(block)
+
   return (
     <article className="email-draft-block" aria-label="Email draft preview">
       <div className="email-draft-header">
@@ -45,12 +48,18 @@ export function EmailDraftBlock({
         </button>
         <button
           className="secondary-button button-sm"
+          disabled={!canBlockSuggestedTimes}
           onClick={() => onBlockSuggestedTimes?.(block)}
           type="button"
         >
           Block suggested times
         </button>
       </div>
+      {!canBlockSuggestedTimes ? (
+        <p className="email-draft-action-note">
+          This draft does not include suggested times to block yet.
+        </p>
+      ) : null}
       <pre className="email-draft-body">{block.body}</pre>
       <p className="email-draft-note">{getDraftStatusLabel(block)}</p>
     </article>

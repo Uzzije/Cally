@@ -42,11 +42,13 @@ class CalendarEventMutationResult:
 
 class CalendarEventMutationService:
     def __init__(self, client: GoogleCalendarClient | None = None) -> None:
+        """Create calendar mutations in Google and reconcile the created objects into local models."""
         self.client = client or GoogleCalendarClient()
 
     def create_primary_calendar_event(
         self, user: AuthenticatedUser, *, request: CalendarEventMutationRequest
     ) -> CalendarEventMutationResult:
+        """Create an event on the user's primary Google calendar and upsert it locally."""
         start_time = parse_datetime(request.start_time)
         end_time = parse_datetime(request.end_time)
         if start_time is None or end_time is None:

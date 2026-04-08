@@ -35,13 +35,16 @@ class ChatExecutionModeProfileService:
         *,
         preference_query_service: PreferenceQueryService | None = None,
     ) -> None:
+        """Map stored user preferences into an execution profile that shapes agent behavior."""
         self.preference_query_service = preference_query_service or PreferenceQueryService()
 
     def get_profile(self, user: AuthenticatedUser) -> ChatExecutionModeProfile:
+        """Load the user's preferences and return the corresponding execution mode profile."""
         preferences = self.preference_query_service.get_for_user(user)
         return self.from_execution_mode(execution_mode=preferences.execution_mode)
 
     def from_execution_mode(self, *, execution_mode: str) -> ChatExecutionModeProfile:
+        """Return a deterministic profile for a given execution mode string."""
         profiles = {
             ExecutionMode.DRAFT_ONLY: ChatExecutionModeProfile(
                 execution_mode=ExecutionMode.DRAFT_ONLY,

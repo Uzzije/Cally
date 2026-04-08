@@ -5,11 +5,9 @@ import { formatEventTimeRange } from '../utils/week'
 
 export function EventDetailsPanel({
   event,
-  onboardingCompleted,
   timeZone,
 }: {
   event: CalendarEvent | null
-  onboardingCompleted: boolean
   timeZone: string
 }) {
   const eventTitle = event ? toDisplayText(event.title) || 'Untitled event' : 'Choose an event'
@@ -76,10 +74,6 @@ export function EventDetailsPanel({
         </p>
       )}
 
-      <div className="status-ribbon">
-        <span className="status-dot" aria-hidden="true" />
-        <span>{onboardingCompleted ? 'Read-only event inspection is active' : 'Onboarding still pending'}</span>
-      </div>
     </aside>
   )
 }

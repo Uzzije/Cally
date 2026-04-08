@@ -17,6 +17,7 @@ from apps.core.types import AuthenticatedUser
 
 class ChatTurnService:
     def create_turn(self, *, session: ChatSession, user_message: Message) -> ChatTurn:
+        """Create a queued turn with initial defaults and a correlation id."""
         return ChatTurn.objects.create(
             session=session,
             user_message=user_message,
@@ -29,6 +30,7 @@ class ChatTurnService:
     def get_user_turn(
         self, user: AuthenticatedUser, *, session_id: int, turn_id: int
     ) -> ChatTurn | None:
+        """Fetch a turn by id scoped to the owning user + session."""
         return (
             ChatTurn.objects.select_related("assistant_message", "user_message", "session")
             .filter(session__user=user, session_id=session_id, id=turn_id)
@@ -36,6 +38,7 @@ class ChatTurnService:
         )
 
     def mark_running(self, turn: ChatTurn) -> ChatTurn:
+        """Transition a turn to RUNNING and record start time."""
         turn.status = ChatTurnStatus.RUNNING
         turn.started_at = timezone.now()
         turn.save(update_fields=["status", "started_at"])
@@ -52,6 +55,7 @@ class ChatTurnService:
         provider_metadata: dict | None = None,
         eval_snapshot: dict | None = None,
     ) -> ChatTurn:
+        """Mark a turn completed and persist the final assistant result + provider metadata."""
         turn.status = ChatTurnStatus.COMPLETED
         turn.assistant_message = assistant_message
         turn.result_kind = result_kind
@@ -77,6 +81,7 @@ class ChatTurnService:
     def mark_failed(
         self, turn: ChatTurn, *, failure_reason: str, eval_snapshot: dict | None = None
     ) -> ChatTurn:
+        """Mark a turn failed and persist a reason (and optional evaluation snapshot)."""
         turn.status = ChatTurnStatus.FAILED
         turn.result_kind = ChatTurnResultKind.ERROR
         turn.failure_reason = failure_reason
@@ -91,6 +96,7 @@ class ChatTurnService:
     def append_trace_event(
         self, turn: ChatTurn, *, event_type: str, summary: str, data: dict | None = None
     ) -> ChatTurn:
+        """Append a structured trace event for observability/debugging."""
         trace_events = list(turn.trace_events)
         trace_events.append(
             {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-import { ComingSoonDialog, UpgradeNotice } from '../../../components/UpgradeNotice'
+import { ComingSoonDialog, UpgradeNotice } from '../../../shared/components/UpgradeNotice'
 import {
   deleteSavedInsight,
   fetchSavedInsights,

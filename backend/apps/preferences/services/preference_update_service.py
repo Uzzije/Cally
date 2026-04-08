@@ -24,6 +24,7 @@ class PreferenceUpdateService:
         display_timezone: str | None,
         blocked_times: list[dict],
     ) -> UserPreferences:
+        """Validate and persist user preferences (execution mode, timezone, and weekly blocked times)."""
         normalized_execution_mode = self._normalize_execution_mode(execution_mode)
         normalized_display_timezone = self._normalize_display_timezone(display_timezone)
         normalized_blocked_times = self._normalize_blocked_times(blocked_times)

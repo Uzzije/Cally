@@ -53,6 +53,7 @@ class ChatActionProposalService:
         execution_policy_service: ChatExecutionPolicyService | None = None,
         calendar_event_mutation_service: CalendarEventMutationService | None = None,
     ) -> None:
+        """Persist action_card proposals and execute approved calendar mutations."""
         self.execution_policy_service = execution_policy_service or ChatExecutionPolicyService()
         self.calendar_event_mutation_service = (
             calendar_event_mutation_service or CalendarEventMutationService()
@@ -65,6 +66,7 @@ class ChatActionProposalService:
         turn: ChatTurn,
         assistant_message: Message,
     ) -> list[ActionProposal]:
+        """Extract action_card blocks from an assistant message and persist them as ActionProposals."""
         content_blocks = assistant_message.content_blocks
         created_proposals: list[ActionProposal] = []
         has_updates = False
@@ -105,6 +107,7 @@ class ChatActionProposalService:
     def get_user_proposal(
         self, user: AuthenticatedUser, *, session_id: int, proposal_id: str
     ) -> ActionProposal:
+        """Fetch a proposal by public id scoped to the owning user + session."""
         proposal = (
             ActionProposal.objects.select_related("session", "assistant_message")
             .filter(session__user=user, session_id=session_id, public_id=proposal_id)
@@ -118,6 +121,7 @@ class ChatActionProposalService:
     def reject_proposal(
         self, user: AuthenticatedUser, *, session_id: int, proposal_id: str
     ) -> ActionProposal:
+        """Reject a pending proposal and update the originating assistant message block state."""
         proposal = self.get_user_proposal(user, session_id=session_id, proposal_id=proposal_id)
         if proposal.status != ActionProposalStatus.PENDING:
             raise ActionProposalConflictError("Only pending proposals can be rejected.")
@@ -140,6 +144,7 @@ class ChatActionProposalService:
     def approve_proposal(
         self, user: AuthenticatedUser, *, session_id: int, proposal_id: str
     ) -> ActionProposal:
+        """Approve and execute a pending proposal, reconciling results back into message + DB."""
         proposal = self.get_user_proposal(user, session_id=session_id, proposal_id=proposal_id)
         if proposal.status != ActionProposalStatus.PENDING:
             raise ActionProposalConflictError("Only pending proposals can be approved.")
@@ -223,6 +228,7 @@ class ChatActionProposalService:
         return proposal
 
     def serialize(self, proposal: ActionProposal) -> dict[str, Any]:
+        """Serialize a proposal into an API-friendly shape."""
         return {
             "id": proposal.public_id,
             "status": proposal.status,

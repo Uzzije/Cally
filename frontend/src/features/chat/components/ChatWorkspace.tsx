@@ -518,12 +518,12 @@ export function ChatWorkspace({
             </span>
           </div>
           <div>
-            <p className="eyebrow">Assistant</p>
+            <p className="eyebrow">Cally</p>
             <h2>Ask Cally</h2>
           </div>
         </div>
         <p className="chat-panel-copy">
-          Ask grounded calendar questions and review suggested actions before anything changes.
+          Ask about your schedule, get suggestions, and approve changes before they happen.
         </p>
         <p className="chat-panel-timezone">Chat timezone: {activeTimeZone}</p>
       </header>

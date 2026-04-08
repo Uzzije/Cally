@@ -29,12 +29,15 @@ class CalendarQueryService:
         *,
         preference_query_service: PreferenceQueryService | None = None,
     ) -> None:
+        """Query synced calendars/events and derive user-visible calendar state (e.g. timezone, staleness)."""
         self.preference_query_service = preference_query_service or PreferenceQueryService()
 
     def get_primary_calendar(self, user: AuthenticatedUser) -> Calendar | None:
+        """Return the user's primary synced calendar, if present."""
         return Calendar.objects.filter(user=user, is_primary=True).first()
 
     def get_default_timezone(self, user: AuthenticatedUser) -> str:
+        """Choose the best timezone for display/queries: preferences → calendar → recent event → settings."""
         preferred_timezone = self.preference_query_service.get_display_timezone(user)
         if preferred_timezone:
             return preferred_timezone
@@ -55,6 +58,7 @@ class CalendarQueryService:
         return getattr(settings, "TIME_ZONE", "UTC")
 
     def get_events_for_range(self, user: AuthenticatedUser, *, start: datetime, end: datetime):
+        """Return primary-calendar events overlapping a given time range (inclusive by overlap)."""
         return (
             Event.objects.select_related("calendar")
             .filter(
@@ -67,6 +71,7 @@ class CalendarQueryService:
         )
 
     def search_events(self, user: AuthenticatedUser, *, query: str, limit: int = 5):
+        """Search primary-calendar events by common text fields, returning the earliest matches."""
         return (
             Event.objects.select_related("calendar")
             .filter(calendar__user=user, calendar__is_primary=True)
@@ -80,6 +85,7 @@ class CalendarQueryService:
         )
 
     def get_sync_status(self, user: AuthenticatedUser) -> CalendarSyncStatusResult:
+        """Summarize calendar sync state for UI: not started, syncing, ready, or stale."""
         calendar = self.get_primary_calendar(user)
         if calendar is None:
             return CalendarSyncStatusResult(

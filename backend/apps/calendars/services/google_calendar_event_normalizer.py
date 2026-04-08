@@ -29,6 +29,7 @@ def _parse_google_datetime(raw_value: str, timezone_name: str) -> datetime:
 
 
 def normalize_google_event(payload: dict) -> CalendarEventPayload:
+    """Normalize a Google Calendar event resource into our internal CalendarEventPayload."""
     start_payload = payload.get("start", {})
     end_payload = payload.get("end", {})
     is_all_day = "date" in start_payload

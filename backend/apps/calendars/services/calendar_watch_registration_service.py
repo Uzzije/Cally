@@ -25,6 +25,7 @@ class CalendarWatchRegistrationService:
         renew_before: timedelta = timedelta(hours=24),
         webhook_address_resolver: CalendarWebhookAddressResolverService | None = None,
     ) -> None:
+        """Ensure Google Calendar webhook watches are registered and renewed before expiration."""
         self.client = client or GoogleCalendarClient()
         self.renew_before = renew_before
         self.webhook_address_resolver = (
@@ -32,6 +33,7 @@ class CalendarWatchRegistrationService:
         )
 
     def ensure_primary_calendar_watch(self, user: AuthenticatedUser, calendar: Calendar) -> bool:
+        """Register/renew the calendar's webhook watch; return True only when a new watch was created."""
         webhook_address = self.webhook_address_resolver.resolve()
         if not webhook_address:
             logger.info(

@@ -9,9 +9,11 @@ logger = logging.getLogger(__name__)
 
 class ChatTurnTriggerService:
     def __init__(self, client: inngest.Inngest | None = None) -> None:
+        """Emit background processing requests for chat turns."""
         self.client = client or inngest_client
 
     def request_turn_processing(self, *, turn) -> list[str]:
+        """Request async processing of a turn and return emitted event ids."""
         event = inngest.Event(
             name="chat.turn.requested",
             data={

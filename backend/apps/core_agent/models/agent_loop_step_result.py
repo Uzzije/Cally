@@ -5,6 +5,7 @@ from typing import Any, Literal
 @dataclass(frozen=True)
 class AgentLoopStepResult:
     decision: Literal["call_tool", "finish"]
+    decision_reason: str = ""
     tool_name: str | None = None
     tool_args: dict[str, Any] = field(default_factory=dict)
     kind: Literal["answer", "clarification", "fallback"] | None = None

@@ -8,6 +8,7 @@ from django.utils import timezone
 
 from apps.calendars.models.calendar import Calendar
 from apps.calendars.models.event import Event
+from apps.calendars.services.calendar_sync_service import CalendarSyncPrerequisiteError
 
 User = get_user_model()
 
@@ -143,18 +144,47 @@ class CalendarRouterTests(TestCase):
         self.assertTrue(response.json()["is_stale"])
         self.assertEqual(response.json()["sync_state"], "stale")
 
-    @patch("apps.calendars.api.routers.calendar_router.CalendarSyncTriggerService")
-    def test_sync_endpoint_triggers_primary_calendar_sync(self, service_class):
+    @patch("apps.bff.api.routers.calendar_router.CalendarSyncTriggerService")
+    @patch("apps.bff.api.routers.calendar_router.CalendarSyncService")
+    def test_sync_endpoint_triggers_primary_calendar_sync(self, sync_service_class, service_class):
         self.client.force_login(self.user)
+        sync_service_class.return_value.ensure_primary_calendar_sync_available.return_value = None
         service_class.return_value.request_primary_calendar_sync.return_value = ["event-id-1"]
 
         response = self.client.post("/api/v1/calendar/sync", HTTP_HOST="localhost")
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"accepted": True, "event_ids": ["event-id-1"]})
+        sync_service_class.return_value.ensure_primary_calendar_sync_available.assert_called_once_with(
+            self.user
+        )
         service_class.return_value.request_primary_calendar_sync.assert_called_once_with(self.user)
 
-    @patch("apps.calendars.api.routers.calendar_router.CalendarWebhookSyncService")
+    @patch("apps.bff.api.routers.calendar_router.CalendarSyncTriggerService")
+    @patch("apps.bff.api.routers.calendar_router.CalendarSyncService")
+    def test_sync_endpoint_returns_reconnect_error_when_google_credential_is_unusable(
+        self, sync_service_class, service_class
+    ):
+        self.client.force_login(self.user)
+        sync_service_class.return_value.ensure_primary_calendar_sync_available.side_effect = (
+            CalendarSyncPrerequisiteError(
+                "Stored Google credential could not be decrypted. Please reconnect Google Calendar."
+            )
+        )
+
+        response = self.client.post("/api/v1/calendar/sync", HTTP_HOST="localhost")
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(
+            response.json(),
+            {
+                "detail": "Stored Google credential could not be decrypted. Please reconnect Google Calendar.",
+                "code": "google_reauth_required",
+            },
+        )
+        service_class.return_value.request_primary_calendar_sync.assert_not_called()
+
+    @patch("apps.bff.api.routers.calendar_router.CalendarWebhookSyncService")
     def test_google_webhook_endpoint_accepts_valid_notification(self, service_class):
         service_class.return_value.handle_notification.return_value = type(
             "WebhookResult",
@@ -176,7 +206,7 @@ class CalendarRouterTests(TestCase):
         self.assertEqual(response.status_code, 202)
         service_class.return_value.handle_notification.assert_called_once()
 
-    @patch("apps.calendars.api.routers.calendar_router.CalendarWebhookSyncService")
+    @patch("apps.bff.api.routers.calendar_router.CalendarWebhookSyncService")
     def test_google_webhook_endpoint_rejects_invalid_notification(self, service_class):
         from apps.calendars.services.calendar_webhook_sync_service import (
             CalendarWebhookAuthenticationError,

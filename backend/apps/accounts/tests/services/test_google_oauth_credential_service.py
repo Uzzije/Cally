@@ -1,10 +1,15 @@
+from cryptography.fernet import InvalidToken
 from allauth.socialaccount.models import SocialAccount, SocialApp, SocialToken
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
 from django.test import TestCase
+from unittest.mock import patch
 
 from apps.accounts.models.google_oauth_credential import GoogleOAuthCredential
-from apps.accounts.services.google_oauth_credential_service import GoogleOAuthCredentialService
+from apps.accounts.services.google_oauth_credential_service import (
+    GoogleOAuthCredentialError,
+    GoogleOAuthCredentialService,
+)
 
 User = get_user_model()
 
@@ -60,3 +65,23 @@ class GoogleOAuthCredentialServiceTests(TestCase):
         self.assertTrue(GoogleOAuthCredential.objects.filter(user=self.user).exists())
         self.social_token.refresh_from_db()
         self.assertEqual(self.social_token.token, "")
+
+    def test_get_decrypted_credential_raises_clear_error_when_stored_tokens_cannot_be_decrypted(
+        self,
+    ):
+        service = GoogleOAuthCredentialService()
+        service.sync_from_social_token(self.social_token)
+
+        with patch.object(service.cipher, "decrypt", side_effect=InvalidToken):
+            with self.assertRaisesMessage(
+                GoogleOAuthCredentialError,
+                "Stored Google credential could not be decrypted. Please reconnect Google Calendar.",
+            ):
+                service.get_decrypted_credential(self.user)
+
+    def test_has_usable_credential_returns_false_when_stored_tokens_cannot_be_decrypted(self):
+        service = GoogleOAuthCredentialService()
+        service.sync_from_social_token(self.social_token)
+
+        with patch.object(service.cipher, "decrypt", side_effect=InvalidToken):
+            self.assertFalse(service.has_usable_credential(self.user))

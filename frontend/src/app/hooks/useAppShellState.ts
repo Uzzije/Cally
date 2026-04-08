@@ -15,13 +15,18 @@ import type { AuthSession } from '../../features/auth/types'
 import { getCookie } from '../../shared/lib/cookies'
 
 
+type TempBlockedTimesSaveResult = {
+  createdCount: number
+  updatedCount: number
+}
+
 type AppShellState = {
   hasError: boolean
   isLoading: boolean
   messageCredits: MessageCreditStatus | null
   refreshMessageCredits: () => Promise<void>
   clearAllTempBlockedTimes: () => Promise<void>
-  addTempBlockedTimes: (entries: TempBlockedTimeEntry[]) => Promise<void>
+  addTempBlockedTimes: (entries: TempBlockedTimeEntry[]) => Promise<TempBlockedTimesSaveResult>
   loadSession: () => Promise<void>
   removeTempBlockedTime: (entryId: string) => Promise<void>
   session: AuthSession | null
@@ -42,7 +47,11 @@ export function useAppShellState(): AppShellState {
   }, [])
 
   const addTempBlockedTimes = useCallback(async (entries: TempBlockedTimeEntry[]) => {
-    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+    const currentEntries = tempBlockedTimes
+    const timeZone =
+      entries[0]?.timezone ||
+      Intl.DateTimeFormat().resolvedOptions().timeZone ||
+      'UTC'
     const response = await createTempBlockedTimes(
       {
         timezone: timeZone,
@@ -57,8 +66,26 @@ export function useAppShellState(): AppShellState {
       getCookie('csrftoken'),
     )
 
-    setTempBlockedTimes((current) => [...response.entries, ...current])
-  }, [])
+    setTempBlockedTimes((current) => {
+      const returnedIds = new Set(response.entries.map((entry) => entry.id))
+      return [...response.entries, ...current.filter((entry) => !returnedIds.has(entry.id))]
+    })
+
+    const matchedEntries = entries.filter((entry) =>
+      currentEntries.some(
+        (current) =>
+          current.date === entry.date &&
+          current.start === entry.start &&
+          current.end === entry.end &&
+          (current.timezone || timeZone) === (entry.timezone || timeZone),
+      ),
+    )
+
+    return {
+      createdCount: entries.length - matchedEntries.length,
+      updatedCount: matchedEntries.length,
+    }
+  }, [tempBlockedTimes])
 
   const removeTempBlockedTime = useCallback(async (entryId: string) => {
     const response = await deleteTempBlockedTime(entryId, getCookie('csrftoken'))

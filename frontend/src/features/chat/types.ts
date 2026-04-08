@@ -48,12 +48,20 @@ export type ActionCardBlock = {
   actions: ActionCardAction[]
 }
 
+export type EmailDraftSuggestedTime = {
+  date: string
+  start: string
+  end: string
+  timezone?: string
+}
+
 export type EmailDraftBlock = {
   type: 'email_draft'
   to: string[]
   cc?: string[]
   subject: string
   body: string
+  suggested_times?: EmailDraftSuggestedTime[]
   status: 'draft'
   status_detail?: string
 }

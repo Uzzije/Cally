@@ -24,6 +24,8 @@ from apps.chat.services.chat_session_service import ChatSessionService
 from apps.chat.services.chat_turn_service import ChatTurnService
 from apps.chat.services.chat_turn_trigger_service import ChatTurnTriggerService
 
+"""Public exports for chat-domain services used by API layers and background jobs."""
+
 __all__ = [
     "ChatAgentContextService",
     "ChatActionProposalService",

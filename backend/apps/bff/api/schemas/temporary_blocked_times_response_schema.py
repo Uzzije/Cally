@@ -1,6 +1,6 @@
 from ninja import Schema
 
-from apps.preferences.api.schemas.temporary_blocked_time_schema import TemporaryBlockedTimeSchema
+from apps.bff.api.schemas.temporary_blocked_time_schema import TemporaryBlockedTimeSchema
 
 
 class TemporaryBlockedTimesResponseSchema(Schema):

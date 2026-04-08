@@ -1,4 +1,5 @@
 from datetime import timedelta
+from unittest.mock import Mock
 
 from allauth.socialaccount.models import SocialAccount, SocialApp, SocialToken
 from django.contrib.auth import get_user_model
@@ -7,7 +8,10 @@ from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from apps.accounts.models.google_oauth_credential import GoogleOAuthCredential
-from apps.accounts.services.google_oauth_credential_service import GoogleOAuthCredentialService
+from apps.accounts.services.google_oauth_credential_service import (
+    GoogleOAuthCredentialError,
+    GoogleOAuthCredentialService,
+)
 from apps.calendars.models.calendar import Calendar
 from apps.calendars.models.event import Event
 from apps.calendars.services.google_calendar_payloads import (
@@ -15,7 +19,11 @@ from apps.calendars.services.google_calendar_payloads import (
     GoogleCalendarDescriptor,
     GoogleCalendarWatchSubscription,
 )
-from apps.calendars.services.calendar_sync_service import CalendarSyncError, CalendarSyncService
+from apps.calendars.services.calendar_sync_service import (
+    CalendarSyncError,
+    CalendarSyncPrerequisiteError,
+    CalendarSyncService,
+)
 
 User = get_user_model()
 
@@ -205,7 +213,23 @@ class CalendarSyncServiceTests(TestCase):
         GoogleOAuthCredential.objects.all().delete()
         service = CalendarSyncService(client=FakeGoogleCalendarClient())
 
-        with self.assertRaises(CalendarSyncError):
+        with self.assertRaises(CalendarSyncPrerequisiteError):
+            service.sync_primary_calendar(self.user)
+
+    def test_unusable_google_token_raises_prerequisite_error(self):
+        credential_service = Mock()
+        credential_service.get_decrypted_credential.side_effect = GoogleOAuthCredentialError(
+            "Stored Google credential could not be decrypted. Please reconnect Google Calendar."
+        )
+        service = CalendarSyncService(
+            client=FakeGoogleCalendarClient(),
+            credential_service=credential_service,
+        )
+
+        with self.assertRaisesMessage(
+            CalendarSyncPrerequisiteError,
+            "Stored Google credential could not be decrypted. Please reconnect Google Calendar.",
+        ):
             service.sync_primary_calendar(self.user)
 
     def test_google_failure_raises_typed_sync_error(self):

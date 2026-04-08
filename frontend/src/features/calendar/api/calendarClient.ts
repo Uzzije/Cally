@@ -1,4 +1,9 @@
-import type { CalendarResponse, CalendarSyncStatus } from '../types'
+import type {
+  CalendarApiErrorCode,
+  CalendarApiErrorPayload,
+  CalendarResponse,
+  CalendarSyncStatus,
+} from '../types'
 
 
 const backendBaseUrl =
@@ -9,9 +14,38 @@ type CalendarRange = {
   end: string
 }
 
+export class CalendarApiError extends Error {
+  code?: CalendarApiErrorCode
+  status: number
+
+  constructor({ status, detail, code }: { status: number; detail: string; code?: CalendarApiErrorCode }) {
+    super(detail)
+    this.name = 'CalendarApiError'
+    this.code = code
+    this.status = status
+    Object.setPrototypeOf(this, CalendarApiError.prototype)
+  }
+}
+
+async function parseCalendarApiError(response: Response, fallbackMessage: string) {
+  let payload: CalendarApiErrorPayload | null = null
+
+  try {
+    payload = (await response.json()) as CalendarApiErrorPayload
+  } catch {
+    payload = null
+  }
+
+  throw new CalendarApiError({
+    status: response.status,
+    detail: payload?.detail || fallbackMessage,
+    code: payload?.code,
+  })
+}
+
 async function handleJsonResponse<T>(response: Response, fallbackMessage: string): Promise<T> {
   if (!response.ok) {
-    throw new Error(fallbackMessage)
+    await parseCalendarApiError(response, fallbackMessage)
   }
 
   return response.json() as Promise<T>

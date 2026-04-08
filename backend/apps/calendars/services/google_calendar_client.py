@@ -33,9 +33,11 @@ class GoogleCalendarClient:
     token_url = "https://oauth2.googleapis.com/token"
 
     def __init__(self, credential_service: GoogleOAuthCredentialService | None = None) -> None:
+        """Thin wrapper over Google Calendar APIs with token refresh and normalized payloads."""
         self.credential_service = credential_service or GoogleOAuthCredentialService()
 
     def _get_valid_credential(self, user: AuthenticatedUser) -> DecryptedGoogleOAuthCredential:
+        """Return a decrypted credential, refreshing the access token when near expiry."""
         credential = self._get_credential(user)
         if self._token_needs_refresh(credential):
             return self._refresh_credential(user=user)
@@ -158,6 +160,7 @@ class GoogleCalendarClient:
         )
 
     def get_primary_calendar(self, user: AuthenticatedUser) -> GoogleCalendarDescriptor:
+        """Fetch the user's primary calendar descriptor from Google."""
         response = self._request(
             "GET",
             f"{self.base_url}/users/me/calendarList",
@@ -198,6 +201,7 @@ class GoogleCalendarClient:
         description: str = "",
         location: str = "",
     ) -> CalendarEventPayload:
+        """Create an event in Google Calendar and return a normalized local payload shape."""
         payload: dict[str, object] = {
             "summary": title,
             "description": description,
@@ -243,6 +247,7 @@ class GoogleCalendarClient:
         time_min: datetime,
         time_max: datetime,
     ) -> dict[str, list[tuple[datetime, datetime]]]:
+        """Return busy time ranges per attendee email for a given time window."""
         if not attendee_emails:
             return {}
 
@@ -291,6 +296,7 @@ class GoogleCalendarClient:
         calendar_id: str,
         sync_token: str | None = None,
     ) -> tuple[list[CalendarEventPayload], str]:
+        """List and normalize events, supporting incremental sync via syncToken when available."""
         params: dict[str, str] = {
             "singleEvents": "true",
             "showDeleted": "false",
@@ -363,6 +369,7 @@ class GoogleCalendarClient:
         channel_id: str,
         channel_token: str,
     ) -> GoogleCalendarWatchSubscription:
+        """Register a webhook watch channel for calendar event changes."""
         payload: dict[str, object] = {
             "id": channel_id,
             "type": "web_hook",
@@ -412,6 +419,7 @@ class GoogleCalendarClient:
         return datetime.fromtimestamp(expiration_ms / 1000, tz=datetime_timezone.utc)
 
     def stop_channel(self, user: AuthenticatedUser, *, channel_id: str, resource_id: str) -> None:
+        """Stop a previously registered webhook channel in Google."""
         response = self._request(
             "POST",
             f"{self.base_url}/channels/stop",

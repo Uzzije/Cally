@@ -14,7 +14,10 @@ from apps.calendars.inngest.functions.sync_primary_calendar_function import (
 )
 from apps.calendars.models.calendar import Calendar
 from apps.calendars.models.event import Event
-from apps.calendars.services.calendar_sync_service import CalendarSyncService
+from apps.calendars.services.calendar_sync_service import (
+    CalendarSyncPrerequisiteError,
+    CalendarSyncService,
+)
 from apps.calendars.services.google_calendar_payloads import (
     CalendarEventPayload,
     GoogleCalendarDescriptor,
@@ -119,3 +122,28 @@ class SyncPrimaryCalendarFunctionTests(TestCase):
 
         with self.assertRaisesMessage(ValueError, "calendar.sync.requested event missing user_id"):
             handler(_FakeContext(None))
+
+    def test_function_returns_skipped_payload_for_unusable_google_credential(self):
+        handler = cast(Any, sync_primary_calendar_function)._handler
+
+        with patch(
+            "apps.calendars.inngest.functions.sync_primary_calendar_function.CalendarSyncService"
+        ) as service_class:
+            service_class.return_value.sync_primary_calendar.side_effect = CalendarSyncPrerequisiteError(
+                "Stored Google credential could not be decrypted. Please reconnect Google Calendar."
+            )
+
+            result = handler(_FakeContext(self.user.id))
+
+        self.assertEqual(
+            result,
+            {
+                "status": "skipped",
+                "code": "google_reauth_required",
+                "detail": "Stored Google credential could not be decrypted. Please reconnect Google Calendar.",
+                "calendar_id": None,
+                "event_count": 0,
+                "sync_token_present": False,
+                "last_synced_at": None,
+            },
+        )

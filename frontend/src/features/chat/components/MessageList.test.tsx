@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -58,7 +58,7 @@ describe('MessageList', () => {
       />,
     )
 
-    expect(screen.getByLabelText(/assistant is thinking/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/cally is thinking/i)).toBeInTheDocument()
   })
 
   it('renders action-card proposal blocks with review-only metadata', () => {
@@ -171,6 +171,7 @@ describe('MessageList', () => {
                 cc: ['manager@example.com'],
                 subject: 'Quick sync this week?',
                 body: 'Hi Joe,\n\nCould we find 30 minutes this week?\n',
+                suggested_times: [],
                 status: 'draft',
                 status_detail: 'Draft only. Not sent.',
               },
@@ -180,16 +181,21 @@ describe('MessageList', () => {
       />,
     )
 
-    expect(screen.getByRole('article', { name: /email draft preview/i })).toBeInTheDocument()
-    expect(screen.getByText(/to/i)).toBeInTheDocument()
-    expect(screen.getByText(/joe@example.com/i)).toBeInTheDocument()
-    expect(screen.getByText(/cc/i)).toBeInTheDocument()
-    expect(screen.getByText(/manager@example.com/i)).toBeInTheDocument()
+    const preview = screen.getByRole('article', { name: /email draft preview/i })
+
+    expect(preview).toBeInTheDocument()
+    expect(within(preview).getByText(/^to$/i)).toBeInTheDocument()
+    expect(within(preview).getByText(/joe@example.com/i)).toBeInTheDocument()
+    expect(within(preview).getByText(/^cc$/i)).toBeInTheDocument()
+    expect(within(preview).getByText(/manager@example.com/i)).toBeInTheDocument()
     expect(screen.getAllByText(/quick sync this week/i)[0]).toBeInTheDocument()
     expect(screen.getByText(/draft only\. not sent\./i)).toBeInTheDocument()
     expect(screen.getByText(/could we find 30 minutes this week/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /copy email/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /block suggested times/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /block suggested times/i })).toBeDisabled()
+    expect(
+      screen.getByText(/this draft does not include suggested times to block yet/i),
+    ).toBeInTheDocument()
   })
 
   it('renders email draft blocks safely alongside other assistant blocks', () => {
@@ -212,6 +218,7 @@ describe('MessageList', () => {
                 cc: [],
                 subject: 'Quick sync this week?',
                 body: 'Hi Joe,\n\nCould we find 30 minutes this week?\n',
+                suggested_times: [],
                 status: 'draft',
               },
             ],
@@ -322,7 +329,15 @@ describe('MessageList', () => {
                 to: ['joe@example.com'],
                 cc: [],
                 subject: 'Quick sync this week?',
-                body: 'Hi Joe,\n\nCould we find 30 minutes this week?\n',
+                body: 'Hi Joe,\n\nA few times that work for me:\n',
+                suggested_times: [
+                  {
+                    date: '2026-04-14',
+                    start: '14:00',
+                    end: '14:30',
+                    timezone: 'America/New_York',
+                  },
+                ],
                 status: 'draft',
               },
             ],
@@ -338,6 +353,50 @@ describe('MessageList', () => {
 
     expect(onCopyEmailDraft).toHaveBeenCalledTimes(1)
     expect(onBlockSuggestedTimes).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps block suggested times enabled when the draft includes structured suggested times', () => {
+    render(
+      <MessageList
+        isLoading={false}
+        messages={[
+          {
+            id: 1,
+            role: 'assistant',
+            created_at: '2026-04-05T15:00:00Z',
+            content_blocks: [
+              {
+                type: 'email_draft',
+                to: ['kayla@example.com'],
+                cc: [],
+                subject: 'Request to reschedule our meeting on April 9',
+                body: 'Hi Kayla,\n\nWould any of these 30-minute slots work for you?\n',
+                suggested_times: [
+                  {
+                    date: '2026-04-09',
+                    start: '15:00',
+                    end: '15:30',
+                    timezone: 'America/New_York',
+                  },
+                  {
+                    date: '2026-04-10',
+                    start: '10:00',
+                    end: '10:30',
+                    timezone: 'America/New_York',
+                  },
+                ],
+                status: 'draft',
+              },
+            ],
+          },
+        ]}
+      />,
+    )
+
+    expect(screen.getByRole('button', { name: /block suggested times/i })).toBeEnabled()
+    expect(
+      screen.queryByText(/this draft does not include suggested times to block yet/i),
+    ).not.toBeInTheDocument()
   })
 
   it('disables approval in draft-only mode and shows a review-only note', () => {

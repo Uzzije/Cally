@@ -160,6 +160,13 @@
   font-size: var(--font-size-body);
 }
 
+.success-text {
+  margin: 0 0 16px;
+  color: #4d5e47;
+  font-weight: 600;
+  font-size: var(--font-size-body);
+}
+
 @media (max-width: 768px) {
   .app-shell {
     width: min(100vw - 20px, 100%);

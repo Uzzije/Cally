@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 class ChatAssistantTurnService:
-    history_message_limit = 12
+    history_message_limit = 24
 
     def __init__(
         self,
@@ -37,6 +37,7 @@ class ChatAssistantTurnService:
         message_service: ChatMessageService | None = None,
         game_loop_service: GameLoopService | None = None,
     ) -> None:
+        """Assemble prompt/tools/session_state and run one assistant turn through the agent game loop."""
         self.provider = provider or AgnoOpenAIProvider()
         self.prompt_builder = prompt_builder or ChatPromptBuilder()
         self.capability_service = capability_service or ChatCapabilityService()
@@ -49,6 +50,7 @@ class ChatAssistantTurnService:
         self.game_loop_service = game_loop_service or GameLoopService(provider=self.provider)
 
     def generate_response(self, *, session: ChatSession, user_prompt: str) -> AgentTurnResult:
+        """Build an AgentTurnRequest from the chat session and run it through the provider loop."""
         capabilities = self.capability_service.get_release_capabilities()
         execution_profile = self.execution_mode_profile_service.get_profile(session.user)
         tools = self.tool_registry_service.build_tools(user=session.user, profile=execution_profile)
@@ -58,12 +60,15 @@ class ChatAssistantTurnService:
             tools=tools,
             execution_profile=execution_profile,
         )
+        total_messages = self.message_service.list_messages(session).count()
+        history = self.message_service.serialize_history(
+            session,
+            limit=self.history_message_limit,
+        )
         request = AgentTurnRequest(
             message=self.prompt_builder.build_user_prompt(user_prompt=user_prompt),
             system_prompt=self.prompt_builder.build_system_prompt(profile=execution_profile),
-            history=self.message_service.serialize_history(
-                session, limit=self.history_message_limit
-            ),
+            history=history,
             tools=tools,
             session_state=session_state,
             session_id=str(session.id),
@@ -76,10 +81,12 @@ class ChatAssistantTurnService:
         )
 
         logger.info(
-            "chat.assistant.turn.started session_id=%s user_id=%s tools=%s",
+            "chat.assistant.turn.started session_id=%s user_id=%s tools=%s history_messages=%s/%s",
             session.id,
             session.user_id,
             ",".join(tool.name for tool in tools),
+            len(history),
+            total_messages,
         )
         result = self.game_loop_service.run(request)
         logger.info(
@@ -92,6 +99,7 @@ class ChatAssistantTurnService:
         return result
 
     def build_content_blocks(self, result: AgentTurnResult) -> list[dict]:
+        """Map the agent result into validated content blocks for persistence and UI rendering."""
         if result.content_blocks:
             return result.content_blocks
 

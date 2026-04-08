@@ -1,16 +1,16 @@
 from ninja import Router
 
 from apps.core.api.auth import session_auth
-from apps.analytics.api.schemas.delete_saved_insight_response_schema import (
+from apps.bff.api.schemas.delete_saved_insight_response_schema import (
     DeleteSavedInsightResponseSchema,
 )
-from apps.analytics.api.schemas.error_response_schema import ErrorResponseSchema
-from apps.analytics.api.schemas.saved_insight_list_response_schema import (
+from apps.bff.api.schemas.error_response_schema import ErrorResponseSchema
+from apps.bff.api.schemas.saved_insight_list_response_schema import (
     SavedInsightListResponseSchema,
 )
-from apps.analytics.api.schemas.saved_insight_policy_schema import SavedInsightPolicySchema
-from apps.analytics.api.schemas.saved_insight_request_schema import SavedInsightRequestSchema
-from apps.analytics.api.schemas.saved_insight_response_schema import SavedInsightResponseSchema
+from apps.bff.api.schemas.saved_insight_policy_schema import SavedInsightPolicySchema
+from apps.bff.api.schemas.saved_insight_request_schema import SavedInsightRequestSchema
+from apps.bff.api.schemas.saved_insight_response_schema import SavedInsightResponseSchema
 from apps.analytics.services.saved_insight_service import (
     SavedInsightNotFoundError,
     SavedInsightService,

@@ -3,18 +3,22 @@ from django_ratelimit.decorators import ratelimit
 from ninja import Router
 
 from apps.core.api.auth import session_auth
-from apps.calendars.api.schemas.calendar_events_response_schema import CalendarEventsResponseSchema
-from apps.calendars.api.schemas.calendar_response_schema import CalendarResponseSchema
-from apps.calendars.api.schemas.calendar_sync_response_schema import CalendarSyncResponseSchema
-from apps.calendars.api.schemas.calendar_sync_status_response_schema import (
+from apps.bff.api.schemas.calendar_events_response_schema import CalendarEventsResponseSchema
+from apps.bff.api.schemas.calendar_response_schema import CalendarResponseSchema
+from apps.bff.api.schemas.calendar_sync_response_schema import CalendarSyncResponseSchema
+from apps.bff.api.schemas.calendar_sync_status_response_schema import (
     CalendarSyncStatusResponseSchema,
 )
-from apps.calendars.api.schemas.calendar_webhook_response_schema import (
+from apps.bff.api.schemas.calendar_webhook_response_schema import (
     CalendarWebhookResponseSchema,
 )
-from apps.calendars.api.schemas.error_response_schema import ErrorResponseSchema
-from apps.calendars.api.schemas.event_response_schema import EventResponseSchema
+from apps.bff.api.schemas.error_response_schema import ErrorResponseSchema
+from apps.bff.api.schemas.event_response_schema import EventResponseSchema
 from apps.calendars.services.calendar_query_service import CalendarQueryService
+from apps.calendars.services.calendar_sync_service import (
+    CalendarSyncPrerequisiteError,
+    CalendarSyncService,
+)
 from apps.calendars.services.calendar_sync_trigger_service import CalendarSyncTriggerService
 from apps.calendars.services.calendar_webhook_sync_service import (
     CalendarWebhookAuthenticationError,
@@ -99,6 +103,11 @@ def get_calendar_sync_status(request):
 )
 @ratelimit(key="user_or_ip", rate="5/m", method=ratelimit.ALL, block=True)
 def sync_calendar(request):
+    try:
+        CalendarSyncService().ensure_primary_calendar_sync_available(request.user)
+    except CalendarSyncPrerequisiteError as exc:
+        return 503, {"detail": str(exc), "code": exc.code}
+
     try:
         event_ids = CalendarSyncTriggerService().request_primary_calendar_sync(request.user)
     except Exception:  # noqa: BLE001

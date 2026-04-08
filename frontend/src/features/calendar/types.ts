@@ -30,3 +30,9 @@ export type CalendarSyncStatus = {
   is_stale: boolean
 }
 
+export type CalendarApiErrorCode = 'google_reauth_required'
+
+export type CalendarApiErrorPayload = {
+  detail: string
+  code?: CalendarApiErrorCode
+}

@@ -1,6 +1,6 @@
 from ninja import Schema
 
-from apps.accounts.api.schemas.auth_user_schema import AuthUserSchema
+from apps.bff.api.schemas.auth_user_schema import AuthUserSchema
 
 
 class AuthMeResponseSchema(Schema):

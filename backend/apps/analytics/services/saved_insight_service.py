@@ -58,12 +58,15 @@ class SavedInsightService:
         *,
         analytics_query_service: AnalyticsQueryService | None = None,
     ) -> None:
+        """Persist, refresh, and enforce policy for user-saved analytics insights."""
         self.analytics_query_service = analytics_query_service or AnalyticsQueryService()
 
     def list_for_user(self, user: AuthenticatedUser):
+        """List saved insights for the given user."""
         return SavedInsight.objects.filter(user=user)
 
     def get_policy_for_user(self, user: AuthenticatedUser) -> SavedInsightPolicy:
+        """Return the current save policy (limits + upgrade guidance) for the user."""
         current_count = SavedInsight.objects.filter(user=user).count()
         return SavedInsightPolicy(
             max_saved_insights=self.max_saved_insights_per_user,
@@ -80,6 +83,7 @@ class SavedInsightService:
         assistant_message_id: int,
         block_index: int,
     ) -> SavedInsightSaveResult:
+        """Save (or replace) a save-enabled chart block from an assistant message as a SavedInsight."""
         message = (
             Message.objects.select_related("session")
             .filter(
@@ -137,6 +141,7 @@ class SavedInsightService:
 
     @transaction.atomic
     def refresh(self, *, user: AuthenticatedUser, public_id: str) -> SavedInsight:
+        """Recompute and persist the insight's chart/summary from its stored query definition."""
         insight = SavedInsight.objects.filter(user=user, public_id=public_id).first()
         if insight is None:
             raise SavedInsightNotFoundError("Saved insight was not found.")
@@ -166,6 +171,7 @@ class SavedInsightService:
 
     @transaction.atomic
     def delete(self, *, user: AuthenticatedUser, public_id: str) -> bool:
+        """Delete the saved insight if it exists, returning whether anything was removed."""
         insight = SavedInsight.objects.filter(user=user, public_id=public_id).first()
         if insight is None:
             logger.info(

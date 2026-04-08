@@ -296,10 +296,12 @@ class ChatTurnExecutionServiceTests(TestCase):
             [
                 AgentLoopStepResult(
                     decision="call_tool",
+                    decision_reason="I need the saved preferences before I can answer.",
                     tool_name="get_preferences",
                 ),
                 AgentLoopStepResult(
                     decision="finish",
+                    decision_reason="The saved preferences now ground the answer.",
                     kind="answer",
                     text="Your execution mode is draft_only.",
                 ),
@@ -332,10 +334,12 @@ class ChatTurnExecutionServiceTests(TestCase):
             [
                 AgentLoopStepResult(
                     decision="call_tool",
+                    decision_reason="I need the saved preferences before I can answer.",
                     tool_name="get_preferences",
                 ),
                 AgentLoopStepResult(
                     decision="finish",
+                    decision_reason="The saved preferences now ground the answer.",
                     kind="answer",
                     text="Your execution mode is draft_only.",
                 ),
@@ -358,7 +362,15 @@ class ChatTurnExecutionServiceTests(TestCase):
         )
         self.assertEqual(provider_step["data"]["provider_name"], "openai")
         self.assertTrue(provider_step["data"]["provider_model"])
+        self.assertEqual(
+            provider_step["data"]["decision_reason"],
+            "I need the saved preferences before I can answer.",
+        )
         self.assertEqual(result_turn.eval_snapshot["loop_events"][0]["type"], "loop_step_completed")
+        self.assertEqual(
+            result_turn.eval_snapshot["loop_events"][0]["decision_reason"],
+            "I need the saved preferences before I can answer.",
+        )
 
     def test_fail_turn_preserves_existing_provider_loop_metadata(self):
         user_message = self.message_service.create_user_message(
@@ -373,6 +385,7 @@ class ChatTurnExecutionServiceTests(TestCase):
                     "type": "loop_step_completed",
                     "iteration": 1,
                     "decision": "call_tool",
+                    "decision_reason": "I need the current events before I can answer.",
                     "tool_name": "get_events",
                     "tool_args": {"start": "2026-04-06T00:00:00-05:00"},
                     "kind": "",
@@ -422,6 +435,7 @@ class ChatTurnExecutionServiceTests(TestCase):
                             "type": "loop_step_completed",
                             "iteration": 1,
                             "decision": "call_tool",
+                            "decision_reason": "I need the current events before I can answer.",
                             "tool_name": "get_events",
                             "tool_args": {"start": "2026-04-06T00:00:00-05:00"},
                             "kind": "",

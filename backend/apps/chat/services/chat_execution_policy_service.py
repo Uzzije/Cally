@@ -19,9 +19,11 @@ class ChatExecutionPolicyService:
         *,
         preference_query_service: PreferenceQueryService | None = None,
     ) -> None:
+        """Decide whether an approved proposal is allowed to execute under the user's settings."""
         self.preference_query_service = preference_query_service or PreferenceQueryService()
 
     def evaluate(self, *, user, proposal: ActionProposal) -> ExecutionPolicyDecision:
+        """Evaluate execution eligibility for a proposal (e.g. mode gating and supported action types)."""
         preferences = self.preference_query_service.get_for_user(user)
 
         if preferences.execution_mode == ExecutionMode.DRAFT_ONLY:

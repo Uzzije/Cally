@@ -9,6 +9,7 @@ User = get_user_model()
 
 
 def ensure_user_profile(user: Any, social_account: SocialAccount | None = None) -> UserProfile:
+    """Create/update the user's profile, optionally syncing fields from their Google social account."""
     profile, _ = UserProfile.objects.get_or_create(user=user)
 
     if social_account is None:

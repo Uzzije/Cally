@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from allauth.socialaccount.models import SocialToken
+from cryptography.fernet import InvalidToken
 from django.utils import timezone
 
 from apps.accounts.models.google_oauth_credential import GoogleOAuthCredential
@@ -24,30 +25,48 @@ class DecryptedGoogleOAuthCredential:
 
 class GoogleOAuthCredentialService:
     def __init__(self, cipher: GoogleTokenCipherService | None = None) -> None:
+        """Encrypt/decrypt and persist Google OAuth credentials for a user."""
         self.cipher = cipher or GoogleTokenCipherService()
 
     def has_credential(self, user: AuthenticatedUser) -> bool:
+        """Return True if we have both access + refresh tokens stored for the user."""
         credential = self._load_or_bootstrap(user)
         return bool(
             credential and credential.access_token_encrypted and credential.refresh_token_encrypted
         )
 
+    def has_usable_credential(self, user: AuthenticatedUser) -> bool:
+        """Return True if the stored credential can be decrypted and used."""
+        try:
+            self.get_decrypted_credential(user)
+        except GoogleOAuthCredentialError:
+            return False
+        return True
+
     def get_decrypted_credential(self, user: AuthenticatedUser) -> DecryptedGoogleOAuthCredential:
+        """Load and decrypt the user's stored tokens (or raise a user-actionable error)."""
         credential = self._load_or_bootstrap(user)
         if credential is None or not credential.access_token_encrypted:
             raise GoogleOAuthCredentialError("Google access token is not available.")
 
-        refresh_token = ""
-        if credential.refresh_token_encrypted:
-            refresh_token = self.cipher.decrypt(credential.refresh_token_encrypted)
+        try:
+            access_token = self.cipher.decrypt(credential.access_token_encrypted)
+            refresh_token = ""
+            if credential.refresh_token_encrypted:
+                refresh_token = self.cipher.decrypt(credential.refresh_token_encrypted)
+        except InvalidToken as exc:
+            raise GoogleOAuthCredentialError(
+                "Stored Google credential could not be decrypted. Please reconnect Google Calendar."
+            ) from exc
 
         return DecryptedGoogleOAuthCredential(
-            access_token=self.cipher.decrypt(credential.access_token_encrypted),
+            access_token=access_token,
             refresh_token=refresh_token,
             expires_at=credential.expires_at,
         )
 
     def sync_from_social_token(self, social_token: SocialToken) -> GoogleOAuthCredential | None:
+        """Upsert encrypted tokens from an allauth SocialToken, then wipe plaintext token fields."""
         if social_token.account.provider != "google":
             return None
         if not social_token.token and not social_token.token_secret:
@@ -75,6 +94,7 @@ class GoogleOAuthCredentialService:
         access_token: str,
         expires_at,
     ) -> GoogleOAuthCredential:
+        """Update only the access token (e.g. after a refresh) without changing refresh token."""
         credential = self._load_or_bootstrap(user)
         if credential is None:
             raise GoogleOAuthCredentialError("Google refresh token is not available.")

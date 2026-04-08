@@ -55,7 +55,7 @@ export function SettingsWorkspace({
         <section className="workspace-main-column">
           <WorkspacePageHeader
             eyebrow="Settings"
-            intro="Define the recurring constraints and execution posture the assistant should remember before it starts proposing or acting."
+            intro="Set your preferences so Cally knows how you like to work."
             title="Preference-aware planning"
           />
 

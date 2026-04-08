@@ -178,6 +178,12 @@
   gap: 10px;
 }
 
+.email-draft-action-note {
+  margin: -6px 0 0;
+  color: var(--muted);
+  font-size: var(--font-size-caption);
+}
+
 .email-draft-body {
   margin: 0;
   padding: 18px;

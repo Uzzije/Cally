@@ -6,6 +6,7 @@ from datetime import datetime
 
 @dataclass(frozen=True)
 class GoogleCalendarDescriptor:
+    """Minimal primary calendar metadata returned from Google."""
     google_calendar_id: str
     name: str
     is_primary: bool
@@ -15,6 +16,7 @@ class GoogleCalendarDescriptor:
 
 @dataclass(frozen=True)
 class CalendarEventPayload:
+    """Normalized event shape used by our sync/mutation services."""
     google_event_id: str
     title: str
     description: str
@@ -30,6 +32,7 @@ class CalendarEventPayload:
 
 @dataclass(frozen=True)
 class GoogleCalendarWatchSubscription:
+    """Watch registration details needed to renew/stop webhook channels."""
     channel_id: str
     resource_id: str
     expires_at: datetime | None

@@ -20,9 +20,11 @@ class ChatPlanningConstraintsService:
         *,
         preference_query_service: PreferenceQueryService | None = None,
     ) -> None:
+        """Expose preferences-derived planning constraints for agent prompts/session state."""
         self.preference_query_service = preference_query_service or PreferenceQueryService()
 
     def get_constraints(self, user: AuthenticatedUser) -> PlanningConstraints:
+        """Return planning constraints including weekly + temporary blocked times."""
         preferences = self.preference_query_service.get_for_user(user)
         return PlanningConstraints(
             execution_mode=preferences.execution_mode,

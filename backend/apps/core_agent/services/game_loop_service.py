@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 
 from apps.core_agent.models.agent_loop_step_request import AgentLoopStepRequest
@@ -26,15 +27,17 @@ class GameLoopService:
         self.max_iterations = max_iterations
 
     def run(self, request: AgentTurnRequest) -> AgentTurnResult:
+        """Orchestrate the agent loop: request a step, optionally execute tools, and finish with a user-facing result."""
         tool_calls: list[ToolExecutionResult] = []
         loop_events: list[dict] = []
         tool_lookup = {tool.name: tool for tool in request.tools}
+        history: list[dict[str, str]] = list(request.history)
 
         for iteration in range(1, self.max_iterations + 1):
             step_request = AgentLoopStepRequest(
                 message=request.message,
                 system_prompt=request.system_prompt,
-                history=list(request.history),
+                history=list(history),
                 tools=list(request.tools),
                 tool_calls=list(tool_calls),
                 session_state=dict(request.session_state),
@@ -59,6 +62,7 @@ class GameLoopService:
                     "type": "loop_step_completed",
                     "iteration": iteration,
                     "decision": step_result.decision,
+                    "decision_reason": step_result.decision_reason,
                     "tool_name": step_result.tool_name or "",
                     "tool_args": dict(step_result.tool_args),
                     "kind": step_result.kind or "",
@@ -79,6 +83,14 @@ class GameLoopService:
 
             tool_result = self._execute_tool(step_result=step_result, tool_lookup=tool_lookup)
             tool_calls.append(tool_result)
+            history.append({
+                "role": "assistant",
+                "content": f"[Tool call: {tool_result.tool_name}({json.dumps(tool_result.tool_args)})]",
+            })
+            history.append({
+                "role": "user",
+                "content": f"[Tool result: {tool_result.result}]",
+            })
             loop_events.append(
                 {
                     "type": "tool_executed",
@@ -100,6 +112,7 @@ class GameLoopService:
         step_result: AgentLoopStepResult,
         tool_lookup: dict[str, ToolDefinition],
     ) -> ToolExecutionResult:
+        """Validate tool args and invoke the selected tool, returning a normalized execution result."""
         tool_name = step_result.tool_name or ""
         tool = tool_lookup.get(tool_name)
         if tool is None:
@@ -123,6 +136,7 @@ class GameLoopService:
         )
 
     def _validate_step_result(self, step_result: AgentLoopStepResult) -> None:
+        """Enforce the provider's step contract before we act on it."""
         if step_result.decision == "call_tool":
             if not step_result.tool_name:
                 raise ValueError("Tool decisions must include a tool_name.")

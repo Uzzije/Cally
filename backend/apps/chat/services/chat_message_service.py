@@ -23,9 +23,11 @@ class ChatMessageService:
         )
 
     def list_messages(self, session: ChatSession):
+        """Return the session's messages in stable chronological order."""
         return Message.objects.filter(session=session).order_by("created_at", "id")
 
     def create_user_message(self, session: ChatSession, *, content: str) -> Message:
+        """Persist a user text message and bump the session's `updated_at`."""
         message = Message.objects.create(
             session=session,
             role=MessageRole.USER,
@@ -46,6 +48,7 @@ class ChatMessageService:
         content_blocks: list[dict],
         tool_calls: list[ToolExecutionResult] | None = None,
     ) -> Message:
+        """Persist an assistant message after validating content blocks and serializing tool calls."""
         validated_content_blocks = self.content_block_validation_service.validate(content_blocks)
         message = Message.objects.create(
             session=session,
@@ -62,6 +65,7 @@ class ChatMessageService:
         *,
         limit: int | None = None,
     ) -> list[dict[str, str]]:
+        """Serialize chat history into provider-friendly role/content pairs."""
         serialized_messages: list[dict[str, str]] = []
         messages = self.list_messages(session)
         if limit is not None:
@@ -77,6 +81,7 @@ class ChatMessageService:
         return serialized_messages
 
     def render_text_content(self, message: Message) -> str:
+        """Render heterogeneous content blocks into a single plain-text summary for LLM context."""
         parts: list[str] = []
         for block in message.content_blocks:
             if block.get("type") in {"text", "clarification", "status"}:
@@ -133,5 +138,6 @@ class ChatMessageService:
         return f"Chart ({chart_type}): {title}\n{rendered_points}".strip()
 
     def _touch_session(self, session: ChatSession) -> None:
+        """Update `updated_at` so the session reflects new activity."""
         session.updated_at = timezone.now()
         session.save(update_fields=["updated_at"])

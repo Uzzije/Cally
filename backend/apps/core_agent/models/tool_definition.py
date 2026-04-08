@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import inspect
+import json
 from dataclasses import dataclass, field
 from types import NoneType, UnionType
-from typing import Any, Callable, Union, get_args, get_origin
+from typing import Any, Callable, Union, get_args, get_origin, get_type_hints
 
 from apps.core_agent.decorators import AGENT_TOOL_METADATA_ATTR, AgentToolMetadata
 
@@ -42,12 +43,13 @@ class ToolDefinition:
         validated_args: dict[str, Any] = {}
         for field_name, value in args.items():
             field_schema = properties.get(field_name, {})
-            if not self._matches_json_type(value=value, field_schema=field_schema):
+            coerced = self._coerce_value(value=value, field_schema=field_schema)
+            if not self._matches_json_type(value=coerced, field_schema=field_schema):
                 expected_type = field_schema.get("type", "string")
                 raise ValueError(
                     f"Invalid type for tool argument '{field_name}': expected {expected_type}"
                 )
-            validated_args[field_name] = value
+            validated_args[field_name] = coerced
 
         return validated_args
 
@@ -76,6 +78,7 @@ class ToolDefinition:
     @staticmethod
     def _build_input_schema(handler: Callable[..., str]) -> dict[str, Any]:
         signature = inspect.signature(handler)
+        type_hints = get_type_hints(handler)
         properties: dict[str, Any] = {}
         required: list[str] = []
 
@@ -83,7 +86,8 @@ class ToolDefinition:
             if parameter.kind in {inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD}:
                 continue
 
-            json_type, nullable = ToolDefinition._map_annotation_to_json_type(parameter.annotation)
+            annotation = type_hints.get(parameter.name, parameter.annotation)
+            json_type, nullable = ToolDefinition._map_annotation_to_json_type(annotation)
             schema: dict[str, Any] = {"type": json_type}
             if nullable:
                 schema["nullable"] = True
@@ -126,6 +130,47 @@ class ToolDefinition:
             return "array", False
 
         return "string", False
+
+    @staticmethod
+    def _coerce_value(*, value: Any, field_schema: dict[str, Any]) -> Any:
+        """Attempt to coerce string values to the expected type.
+
+        LLMs sometimes return numeric values as strings inside tool_args_json
+        (e.g. "10" instead of 10). This converts them before strict type checking
+        so the tool receives the correct Python type.
+        """
+        if not isinstance(value, str):
+            if field_schema.get("type") == "array" and not isinstance(value, list):
+                if isinstance(value, tuple | set):
+                    return list(value)
+                return [value]
+            return value
+
+        expected_type = field_schema.get("type")
+        if expected_type in {"array", "object"}:
+            stripped = value.strip()
+            if stripped.startswith("[") or stripped.startswith("{"):
+                try:
+                    decoded = json.loads(stripped)
+                    if expected_type == "array" and not isinstance(decoded, list):
+                        return [decoded]
+                    return decoded
+                except (json.JSONDecodeError, TypeError):
+                    return value
+            if expected_type == "array":
+                return [value]
+        if expected_type == "integer":
+            try:
+                return int(value)
+            except (ValueError, TypeError):
+                return value
+        if expected_type == "number":
+            try:
+                return float(value)
+            except (ValueError, TypeError):
+                return value
+
+        return value
 
     @staticmethod
     def _matches_json_type(*, value: Any, field_schema: dict[str, Any]) -> bool:

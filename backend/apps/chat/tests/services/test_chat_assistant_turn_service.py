@@ -65,7 +65,7 @@ class ChatAssistantTurnServiceTests(TestCase):
             self.fail("Expected provider.last_request to be set")
         return request
 
-    def test_generate_response_registers_only_read_only_tools(self):
+    def test_generate_response_registers_calendar_and_workspace_tools(self):
         provider = FakeAgentProvider(
             [
                 AgentLoopStepResult(
@@ -86,6 +86,8 @@ class ChatAssistantTurnServiceTests(TestCase):
                 "get_events",
                 "search_events",
                 "get_preferences",
+                "get_temp_blocked_times",
+                "delete_temp_blocked_times",
                 "query_analytics",
                 "build_email_draft",
             ],
@@ -138,11 +140,21 @@ class ChatAssistantTurnServiceTests(TestCase):
         self.assertIn("use the build_email_draft tool", request.system_prompt)
         self.assertIn("use `query_analytics`", request.system_prompt)
         self.assertIn("Subject:", request.system_prompt)
+        self.assertIn("structured suggested_times", request.system_prompt)
         self.assertIn("finish with a short grounded answer", request.system_prompt)
+        self.assertIn(
+            "Multiple tool calls are allowed when they add new grounding, but do not",
+            request.system_prompt,
+        )
+        self.assertIn(
+            "re-call build_email_draft in the same turn once you already have a valid",
+            request.system_prompt,
+        )
         self.assertIn("draft it instead", request.system_prompt)
         self.assertIn("backend-controlled loop", request.system_prompt)
         self.assertIn("call_tool", request.system_prompt)
         self.assertIn("finish", request.system_prompt)
+        self.assertIn("brief decision_reason", request.system_prompt)
         self.assertNotIn("## Runtime context", request.system_prompt)
         self.assertNotIn("## Response contract", request.system_prompt)
         self.assertNotIn("meeting purpose", request.system_prompt)
@@ -197,6 +209,53 @@ class ChatAssistantTurnServiceTests(TestCase):
         service.generate_response(session=self.session, user_prompt="What does tomorrow look like?")
 
         self.assertEqual(self._last_request(provider).message, "What does tomorrow look like?")
+
+    def test_generate_response_keeps_eighteen_message_conversation_in_history(self):
+        provider = FakeAgentProvider(
+            [
+                AgentLoopStepResult(
+                    decision="finish",
+                    kind="answer",
+                    text="I still have the earlier context.",
+                )
+            ]
+        )
+        service = ChatAssistantTurnService(provider=provider)
+
+        for index in range(8):
+            ChatMessageService().create_assistant_message(
+                self.session,
+                content_blocks=[
+                    {
+                        "type": "text",
+                        "text": f"Assistant memory {index + 1}",
+                    }
+                ],
+            )
+            ChatMessageService().create_user_message(
+                self.session,
+                content=f"User memory {index + 1}",
+            )
+
+        ChatMessageService().create_assistant_message(
+            self.session,
+            content_blocks=[
+                {
+                    "type": "text",
+                    "text": "Assistant memory 9",
+                }
+            ],
+        )
+
+        service.generate_response(
+            session=self.session,
+            user_prompt="Keep the full thread in memory.",
+        )
+
+        history = self._last_request(provider).history
+        self.assertEqual(len(history), 18)
+        self.assertEqual(history[0]["content"], "What does tomorrow look like?")
+        self.assertEqual(history[-1]["content"], "Assistant memory 9")
 
     def test_generate_response_includes_saved_blocked_times_in_agent_context(self):
         UserPreferences.objects.create(
@@ -365,10 +424,19 @@ class ChatAssistantTurnServiceTests(TestCase):
                             "tool_args": {
                                 "to": ["joe@example.com"],
                                 "draft_markdown": "Subject: Quick sync this week?\n\nHi Joe",
+                                "suggested_times": [
+                                    {
+                                        "date": "2026-04-14",
+                                        "start": "14:00",
+                                        "end": "14:30",
+                                        "timezone": "America/New_York",
+                                    }
+                                ],
                             },
                             "result": (
                                 '{"type":"email_draft","to":["joe@example.com"],'
                                 '"cc":[],"subject":"Quick sync this week?","body":"Hi Joe",'
+                                '"suggested_times":[{"date":"2026-04-14","start":"14:00","end":"14:30","timezone":"America/New_York"}],'
                                 '"status":"draft","status_detail":"Draft only. Not sent."}'
                             ),
                         },
@@ -380,6 +448,7 @@ class ChatAssistantTurnServiceTests(TestCase):
         self.assertEqual(blocks[0]["type"], "text")
         self.assertEqual(blocks[1]["type"], "email_draft")
         self.assertEqual(blocks[1]["subject"], "Quick sync this week?")
+        self.assertEqual(blocks[1]["suggested_times"][0]["timezone"], "America/New_York")
 
     def test_build_content_blocks_builds_chart_block_from_tool_output(self):
         service = ChatAssistantTurnService(

@@ -7,7 +7,10 @@ from typing import Any
 from django.db import transaction
 from django.utils import timezone
 
-from apps.accounts.services.google_oauth_credential_service import GoogleOAuthCredentialService
+from apps.accounts.services.google_oauth_credential_service import (
+    GoogleOAuthCredentialError,
+    GoogleOAuthCredentialService,
+)
 from apps.calendars.models.calendar import Calendar
 from apps.core.types import AuthenticatedUser
 from apps.calendars.models.event import Event
@@ -21,6 +24,10 @@ logger = logging.getLogger(__name__)
 
 class CalendarSyncError(Exception):
     pass
+
+
+class CalendarSyncPrerequisiteError(CalendarSyncError):
+    code = "google_reauth_required"
 
 
 @dataclass(frozen=True)
@@ -38,15 +45,23 @@ class CalendarSyncService:
         watch_registration_service: CalendarWatchRegistrationService | None = None,
         credential_service: GoogleOAuthCredentialService | None = None,
     ) -> None:
+        """Sync a user's primary Google Calendar into local Calendar/Event models and register watches."""
         self.client = client or GoogleCalendarClient()
         self.credential_service = credential_service or GoogleOAuthCredentialService()
         self.watch_registration_service = (
             watch_registration_service or CalendarWatchRegistrationService(client=self.client)
         )
 
+    def ensure_primary_calendar_sync_available(self, user: AuthenticatedUser) -> None:
+        """Raise a prerequisite error if the user needs to re-auth Google before syncing."""
+        try:
+            self.credential_service.get_decrypted_credential(user)
+        except GoogleOAuthCredentialError as exc:
+            raise CalendarSyncPrerequisiteError(str(exc)) from exc
+
     def sync_primary_calendar(self, user: AuthenticatedUser) -> CalendarSyncResult:
-        if not self.credential_service.has_credential(user):
-            raise CalendarSyncError("Google account token is not available for calendar sync.")
+        """Fetch primary calendar + events from Google, upsert locally, then ensure a webhook watch."""
+        self.ensure_primary_calendar_sync_available(user)
 
         try:
             calendar_descriptor = self.client.get_primary_calendar(user)

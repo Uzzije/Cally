@@ -3,6 +3,7 @@ import type {
   ChatContentBlock,
   ChartBlock,
   EmailDraftBlock,
+  EmailDraftSuggestedTime,
   ChatMessage,
   ChatMessageHistoryResponse,
   ChatSessionSummary,
@@ -76,8 +77,24 @@ function isEmailDraftBlock(value: unknown): value is EmailDraftBlock {
     value.subject.length > 0 &&
     typeof value.body === 'string' &&
     value.body.length > 0 &&
+    (value.suggested_times === undefined ||
+      (Array.isArray(value.suggested_times) &&
+        value.suggested_times.every(isEmailDraftSuggestedTime))) &&
     value.status === 'draft' &&
     (value.status_detail === undefined || typeof value.status_detail === 'string')
+  )
+}
+
+function isEmailDraftSuggestedTime(value: unknown): value is EmailDraftSuggestedTime {
+  return (
+    isRecord(value) &&
+    typeof value.date === 'string' &&
+    value.date.length > 0 &&
+    typeof value.start === 'string' &&
+    value.start.length > 0 &&
+    typeof value.end === 'string' &&
+    value.end.length > 0 &&
+    (value.timezone === undefined || typeof value.timezone === 'string')
   )
 }
 

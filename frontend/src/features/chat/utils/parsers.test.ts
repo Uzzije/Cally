@@ -97,6 +97,14 @@ describe('chat parsers', () => {
               cc: ['manager@example.com'],
               subject: 'Quick sync this week?',
               body: 'Hi Joe,\n\nCould we find 30 minutes this week?\n',
+              suggested_times: [
+                {
+                  date: '2026-04-14',
+                  start: '14:00',
+                  end: '14:30',
+                  timezone: 'America/New_York',
+                },
+              ],
               status: 'draft',
               status_detail: 'Draft only. Not sent.',
             },
@@ -105,7 +113,13 @@ describe('chat parsers', () => {
       ],
     })
 
-    expect(payload.messages[0].content_blocks[0].type).toBe('email_draft')
+    const draftBlock = payload.messages[0].content_blocks[0]
+
+    expect(draftBlock.type).toBe('email_draft')
+    if (draftBlock.type !== 'email_draft') {
+      throw new Error('Expected an email_draft block')
+    }
+    expect(draftBlock.suggested_times?.[0].date).toBe('2026-04-14')
   })
 
   it('accepts chart blocks in chat history payloads', () => {
@@ -186,9 +200,10 @@ describe('chat parsers', () => {
             content_blocks: [
               {
                 type: 'email_draft',
-                to: [],
+                to: ['joe@example.com'],
                 subject: 'Quick sync this week?',
                 body: 'Hi Joe',
+                suggested_times: [{ date: '2026-04-14', start: '', end: '14:30' }],
                 status: 'draft',
               },
             ],

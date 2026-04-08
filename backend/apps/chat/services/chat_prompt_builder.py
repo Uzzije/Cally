@@ -7,6 +7,7 @@ class ChatPromptBuilder:
     prompt_version = "release10-v2"
 
     def build_system_prompt(self, *, profile: ChatExecutionModeProfile) -> str:
+        """Build the system prompt that defines assistant behavior for the current execution profile."""
         return "\n\n".join(
             [
                 self._build_persona_section(),
@@ -17,6 +18,7 @@ class ChatPromptBuilder:
         ).strip()
 
     def build_user_prompt(self, *, user_prompt: str) -> str:
+        """Return the user prompt string (hook for future prompt shaping)."""
         return user_prompt
 
     def _build_persona_section(self) -> str:
@@ -59,6 +61,7 @@ class ChatPromptBuilder:
                 "ACTION: Decide your next step:",
                 "- call_tool -> request one registered tool with JSON-safe arguments.",
                 f"- finish -> return {mutation_finish_target}.",
+                "- In the loop response, include a brief decision_reason that states why this next step is justified.",
             ]
         )
 
@@ -101,8 +104,14 @@ class ChatPromptBuilder:
                 "  the user asks you to draft an email and the recipient and purpose are grounded.",
                 "- Pass the draft content as one markdown string with a `Subject:` line followed",
                 "  by the email body.",
+                "- When the draft proposes candidate slots, also pass structured suggested_times",
+                "  entries with date, start, end, and timezone instead of burying that data only",
+                "  inside prose.",
                 "- After build_email_draft succeeds, finish with a short grounded answer instead",
                 "  of hand-writing an email_draft block yourself.",
+                "- Multiple tool calls are allowed when they add new grounding, but do not",
+                "  re-call build_email_draft in the same turn once you already have a valid",
+                "  draft result.",
                 f"- {profile.grounded_mutation_finish_instruction}",
             ],
             "direct_tool_call": [
@@ -114,8 +123,14 @@ class ChatPromptBuilder:
                 "  the recipient and purpose are grounded.",
                 "- Pass the draft content as one markdown string with a `Subject:` line followed",
                 "  by the email body.",
+                "- When the draft proposes candidate slots, also pass structured suggested_times",
+                "  entries with date, start, end, and timezone instead of burying that data only",
+                "  inside prose.",
                 "- After build_email_draft succeeds, finish with a short grounded answer instead",
                 "  of hand-writing an email_draft block yourself.",
+                "- Multiple tool calls are allowed when they add new grounding, but do not",
+                "  re-call build_email_draft in the same turn once you already have a valid",
+                "  draft result.",
                 f"- {profile.grounded_mutation_finish_instruction}",
             ],
         }

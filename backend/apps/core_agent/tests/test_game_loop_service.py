@@ -27,10 +27,12 @@ class GameLoopServiceTests(SimpleTestCase):
             [
                 AgentLoopStepResult(
                     decision="call_tool",
+                    decision_reason="I need the saved preferences before I can answer.",
                     tool_name="get_preferences",
                 ),
                 AgentLoopStepResult(
                     decision="finish",
+                    decision_reason="The saved preferences now ground the answer.",
                     kind="answer",
                     text="Your execution mode is confirm.",
                 ),
@@ -59,11 +61,19 @@ class GameLoopServiceTests(SimpleTestCase):
         self.assertEqual(result.tool_calls[0].tool_name, "get_preferences")
         self.assertEqual(result.tool_calls[0].result, '{"execution_mode": "confirm"}')
         self.assertEqual(result.loop_events[0]["type"], "loop_step_completed")
+        self.assertEqual(
+            result.loop_events[0]["decision_reason"],
+            "I need the saved preferences before I can answer.",
+        )
         self.assertEqual(result.loop_events[1]["type"], "tool_executed")
         self.assertEqual(result.loop_events[-1]["decision"], "finish")
         self.assertEqual(provider.step_requests[0].iteration, 1)
         self.assertEqual(provider.step_requests[1].iteration, 2)
         self.assertEqual(provider.step_requests[1].tool_calls[0].tool_name, "get_preferences")
+        self.assertEqual(
+            len(provider.step_requests[1].history),
+            len(provider.step_requests[0].history) + 2,
+        )
 
     def test_run_rejects_unknown_tools(self):
         provider = FakeLoopProvider(
@@ -91,6 +101,7 @@ class GameLoopServiceTests(SimpleTestCase):
             [
                 AgentLoopStepResult(
                     decision="call_tool",
+                    decision_reason="I need the saved preferences before I can answer.",
                     tool_name="get_preferences",
                 )
             ]
@@ -115,7 +126,53 @@ class GameLoopServiceTests(SimpleTestCase):
                 )
             )
         self.assertEqual(raised.exception.loop_events[0]["decision"], "call_tool")
+        self.assertEqual(
+            raised.exception.loop_events[0]["decision_reason"],
+            "I need the saved preferences before I can answer.",
+        )
         self.assertEqual(raised.exception.tool_calls[0].tool_name, "get_preferences")
+
+    def test_run_appends_tool_call_context_to_history_between_iterations(self):
+        provider = FakeLoopProvider(
+            [
+                AgentLoopStepResult(
+                    decision="call_tool",
+                    decision_reason="I need the saved preferences.",
+                    tool_name="get_preferences",
+                ),
+                AgentLoopStepResult(
+                    decision="finish",
+                    decision_reason="Done.",
+                    kind="answer",
+                    text="Done.",
+                ),
+            ]
+        )
+        service = GameLoopService(provider=provider)
+
+        service.run(
+            AgentTurnRequest(
+                message="What are my preferences?",
+                system_prompt="Run the loop.",
+                history=[{"role": "user", "content": "What are my preferences?"}],
+                tools=[
+                    ToolDefinition(
+                        name="get_preferences",
+                        description="Get saved preferences.",
+                        handler=lambda: '{"execution_mode": "confirm"}',
+                    )
+                ],
+            )
+        )
+
+        first_history = provider.step_requests[0].history
+        second_history = provider.step_requests[1].history
+        self.assertEqual(len(first_history), 1)
+        self.assertEqual(len(second_history), 3)
+        self.assertEqual(second_history[1]["role"], "assistant")
+        self.assertIn("get_preferences", second_history[1]["content"])
+        self.assertEqual(second_history[2]["role"], "user")
+        self.assertIn("execution_mode", second_history[2]["content"])
 
     def test_run_rejects_tool_args_that_fail_schema_validation(self):
         provider = FakeLoopProvider(

@@ -12,6 +12,7 @@ class CalendarWebhookAddressResolverService:
     webhook_path = "/api/v1/calendar/webhook/google"
 
     def resolve(self) -> str | None:
+        """Resolve a public, allowed webhook callback URL for Google watch registrations."""
         explicit_address = (getattr(settings, "GOOGLE_CALENDAR_WEBHOOK_ADDRESS", "") or "").strip()
         backend_public_base_url = (getattr(settings, "BACKEND_PUBLIC_BASE_URL", "") or "").strip()
         serve_origin = (getattr(settings, "INNGEST_SERVE_ORIGIN", "") or "").strip()

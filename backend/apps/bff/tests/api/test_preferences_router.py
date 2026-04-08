@@ -1,4 +1,5 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
@@ -129,6 +130,42 @@ class PreferencesRouterTests(TestCase):
             TemporaryBlockedTime.objects.filter(user=self.user).count(),
             1,
         )
+
+    def test_post_temp_blocked_times_upserts_existing_entry_for_same_time_range(self):
+        self.client.force_login(self.user)
+        existing_entry = TemporaryBlockedTime.objects.create(
+            user=self.user,
+            label="Original hold",
+            start_time=timezone.make_aware(datetime(2026, 4, 8, 14, 0), ZoneInfo("America/New_York")),
+            end_time=timezone.make_aware(datetime(2026, 4, 8, 14, 30), ZoneInfo("America/New_York")),
+            timezone="America/New_York",
+            expires_at=timezone.now() + timedelta(minutes=10),
+        )
+
+        response = self.client.post(
+            "/api/v1/settings/temp-blocked-times",
+            data={
+                "timezone": "America/New_York",
+                "entries": [
+                    {
+                        "label": "Updated hold",
+                        "date": "2026-04-08",
+                        "start": "14:00",
+                        "end": "14:30",
+                        "source": "email_draft",
+                    }
+                ],
+            },
+            content_type="application/json",
+            HTTP_HOST="localhost",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(len(payload["entries"]), 1)
+        self.assertEqual(payload["entries"][0]["id"], existing_entry.public_id)
+        self.assertEqual(payload["entries"][0]["label"], "Updated hold")
+        self.assertEqual(TemporaryBlockedTime.objects.filter(user=self.user).count(), 1)
 
     def test_get_temp_blocked_times_returns_only_active_entries(self):
         self.client.force_login(self.user)

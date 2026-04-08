@@ -29,6 +29,7 @@ class AgnoOpenAIProviderTests(SimpleTestCase):
         agent_instance.run.return_value = SimpleNamespace(
             content=AgentLoopStructuredResponse(
                 decision="call_tool",
+                decision_reason="I need the event range before I can answer.",
                 tool_name="get_events",
                 tool_args_json='{"start":"2026-04-06T00:00:00+00:00","end":"2026-04-07T00:00:00+00:00"}',
                 kind="",
@@ -63,6 +64,7 @@ class AgnoOpenAIProviderTests(SimpleTestCase):
         self.assertNotIn("tools", agent_kwargs)
 
         self.assertEqual(result.decision, "call_tool")
+        self.assertEqual(result.decision_reason, "I need the event range before I can answer.")
         self.assertEqual(result.tool_name, "get_events")
         self.assertEqual(
             result.tool_args,
@@ -73,7 +75,7 @@ class AgnoOpenAIProviderTests(SimpleTestCase):
         )
         self.assertEqual(
             result.raw_content,
-            '{"decision":"call_tool","tool_name":"get_events","tool_args_json":"{\\"start\\":\\"2026-04-06T00:00:00+00:00\\",\\"end\\":\\"2026-04-07T00:00:00+00:00\\"}","kind":"","text":"","content_blocks":[]}',
+            '{"decision":"call_tool","decision_reason":"I need the event range before I can answer.","tool_name":"get_events","tool_args_json":"{\\"start\\":\\"2026-04-06T00:00:00+00:00\\",\\"end\\":\\"2026-04-07T00:00:00+00:00\\"}","kind":"","text":"","content_blocks":[]}',
         )
 
     def test_coerce_step_content_accepts_generic_pydantic_models(self):
@@ -82,6 +84,7 @@ class AgnoOpenAIProviderTests(SimpleTestCase):
         payload = provider._coerce_step_content(
             AgentLoopStructuredResponse(
                 decision="finish",
+                decision_reason="The answer is already grounded by the current context.",
                 tool_name="",
                 tool_args_json="{}",
                 kind="clarification",
@@ -94,6 +97,7 @@ class AgnoOpenAIProviderTests(SimpleTestCase):
             payload.model_dump(),
             AgentLoopStructuredResponse(
                 decision="finish",
+                decision_reason="The answer is already grounded by the current context.",
                 tool_name="",
                 tool_args_json="{}",
                 kind="clarification",
@@ -108,6 +112,7 @@ class AgnoOpenAIProviderTests(SimpleTestCase):
         payload = provider._coerce_step_content(
             {
                 "decision": "finish",
+                "decision_reason": "The proposal is grounded by the current request details.",
                 "tool_name": "",
                 "tool_args_json": "{}",
                 "kind": "answer",
@@ -153,6 +158,7 @@ class AgnoOpenAIProviderTests(SimpleTestCase):
         payload = provider._coerce_step_content(
             {
                 "decision": "finish",
+                "decision_reason": "The draft content is already grounded by the request.",
                 "tool_name": "",
                 "tool_args_json": "{}",
                 "kind": "answer",
@@ -164,6 +170,14 @@ class AgnoOpenAIProviderTests(SimpleTestCase):
                         "cc": [],
                         "subject": "Quick sync this week?",
                         "body": "Hi Joe\n\nCould we find 30 minutes this week?\n",
+                        "suggested_times": [
+                            {
+                                "date": "2026-04-14",
+                                "start": "14:00",
+                                "end": "14:30",
+                                "timezone": "America/New_York",
+                            }
+                        ],
                         "status": "draft",
                         "status_detail": "Draft only. Not sent.",
                     }
@@ -174,6 +188,7 @@ class AgnoOpenAIProviderTests(SimpleTestCase):
         block = cast(EmailDraftBlock, payload.content_blocks[0])
         self.assertEqual(block.type, "email_draft")
         self.assertEqual(block.subject, "Quick sync this week?")
+        self.assertEqual(block.suggested_times[0].timezone, "America/New_York")
 
     def test_coerce_step_content_preserves_chart_blocks(self):
         provider = AgnoOpenAIProvider(api_key="test-openai-key")
@@ -181,6 +196,7 @@ class AgnoOpenAIProviderTests(SimpleTestCase):
         payload = provider._coerce_step_content(
             {
                 "decision": "finish",
+                "decision_reason": "The analytics result already grounds the answer.",
                 "tool_name": "",
                 "tool_args_json": "{}",
                 "kind": "answer",
@@ -212,6 +228,7 @@ class AgnoOpenAIProviderTests(SimpleTestCase):
         payload = provider._coerce_step_content(
             {
                 "decision": "finish",
+                "decision_reason": "The current session state already contains the answer.",
                 "tool_name": "",
                 "tool_args_json": "{}",
                 "text": "Your execution mode is draft_only.",
@@ -262,14 +279,17 @@ class AgnoOpenAIProviderTests(SimpleTestCase):
         self.assertIn('"start"', message)
         self.assertIn('"current_date"', message)
         self.assertIn('"current_weekday"', message)
+        self.assertIn("decision_reason", message)
         self.assertIn('"decision":"call_tool"', message)
         self.assertIn('"decision":"finish"', message)
+        self.assertIn("Keep it brief, operational, and safe to log.", message)
         self.assertIn('"kind":"answer"', message)
         self.assertIn('"tool_args_json":"{}"', message)
         self.assertIn(
-            "call `build_email_draft` with `to`, optional `cc`, and one `draft_markdown` string",
+            "call `build_email_draft` with `to`, optional `cc`, one `draft_markdown` string",
             message,
         )
+        self.assertIn("structured `suggested_times` entries", message)
         self.assertIn("call `query_analytics`", message)
         self.assertIn("callable tool for draft-only scheduling email previews", message)
         self.assertIn("callable tool for supported read-only analytics", message)
@@ -282,20 +302,61 @@ class AgnoOpenAIProviderTests(SimpleTestCase):
             "call `build_email_draft` once the recipient and purpose are grounded", message
         )
         self.assertIn(
+            "Do not call `build_email_draft` again in the same turn once a valid draft result already exists.",
+            message,
+        )
+        self.assertIn(
+            "If you are on the final iteration and the completed tool calls already contain a valid draft or chart result, you must `finish`.",
+            message,
+        )
+        self.assertIn(
             "finish with one approval-gated action_card instead of asking for optional extras",
             message,
         )
         self.assertIn("should include a `payload` object", message)
         self.assertNotIn("## Conversation history snapshot", message)
 
+    def test_parse_tool_args_json_handles_valid_json(self):
+        provider = AgnoOpenAIProvider()
+        result = provider._parse_tool_args_json('{"query": "meetings this week"}')
+        self.assertEqual(result, {"query": "meetings this week"})
+
+    def test_parse_tool_args_json_returns_empty_dict_for_empty_string(self):
+        provider = AgnoOpenAIProvider()
+        result = provider._parse_tool_args_json("")
+        self.assertEqual(result, {})
+
+    def test_parse_tool_args_json_handles_invalid_escape_sequences(self):
+        provider = AgnoOpenAIProvider()
+        malformed = r'{"body": "Hello\nWorld \Users\example"}'
+        result = provider._parse_tool_args_json(malformed)
+        self.assertIsInstance(result, dict)
+        self.assertIn("body", result)
+
     def test_loop_response_schema_marks_all_top_level_properties_required(self):
         schema = AgentLoopStructuredResponse.model_json_schema()
 
         self.assertEqual(
             set(schema["required"]),
-            {"decision", "tool_name", "tool_args_json", "kind", "text", "content_blocks"},
+            {
+                "decision",
+                "decision_reason",
+                "tool_name",
+                "tool_args_json",
+                "kind",
+                "text",
+                "content_blocks",
+            },
         )
         self.assertEqual(
             set(schema["properties"].keys()),
-            {"decision", "tool_name", "tool_args_json", "kind", "text", "content_blocks"},
+            {
+                "decision",
+                "decision_reason",
+                "tool_name",
+                "tool_args_json",
+                "kind",
+                "text",
+                "content_blocks",
+            },
         )

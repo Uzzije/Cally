@@ -18,6 +18,14 @@ class ChatContentBlockValidationServiceTests(SimpleTestCase):
                 "cc": ["manager@example.com"],
                 "subject": "Quick sync this week?",
                 "body": "Hi Joe,\n\nCould we find 30 minutes this week?\n",
+                "suggested_times": [
+                    {
+                        "date": "2026-04-14",
+                        "start": "14:00",
+                        "end": "14:30",
+                        "timezone": "America/New_York",
+                    }
+                ],
                 "status": "draft",
                 "status_detail": "Draft only. Not sent.",
             }
@@ -27,6 +35,7 @@ class ChatContentBlockValidationServiceTests(SimpleTestCase):
 
         self.assertEqual(validated[0]["type"], "email_draft")
         self.assertEqual(validated[0]["to"], ["joe@example.com"])
+        self.assertEqual(validated[0]["suggested_times"][0]["date"], "2026-04-14")
 
     def test_validate_rejects_email_draft_without_recipients(self):
         with self.assertRaises(ChatContentBlockValidationError):
@@ -52,6 +61,21 @@ class ChatContentBlockValidationServiceTests(SimpleTestCase):
                         "subject": "Quick sync this week?",
                         "body": "Hi Joe",
                         "status": "sent",
+                    }
+                ]
+            )
+
+    def test_validate_rejects_email_draft_with_invalid_suggested_times(self):
+        with self.assertRaises(ChatContentBlockValidationError):
+            self.service.validate(
+                [
+                    {
+                        "type": "email_draft",
+                        "to": ["joe@example.com"],
+                        "subject": "Quick sync this week?",
+                        "body": "Hi Joe",
+                        "suggested_times": [{"date": "2026-04-14", "start": "", "end": "14:30"}],
+                        "status": "draft",
                     }
                 ]
             )

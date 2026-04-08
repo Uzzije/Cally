@@ -3,6 +3,7 @@ from apps.core_agent.models.agent_capability import AgentCapability
 
 class ChatCapabilityService:
     def get_release_capabilities(self) -> list[AgentCapability]:
+        """Return the capability flags enabled for the current release."""
         return [
             AgentCapability(
                 name="approval_gated_calendar_execution",

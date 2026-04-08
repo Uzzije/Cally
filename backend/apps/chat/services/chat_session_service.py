@@ -8,18 +8,22 @@ class ChatSessionService:
     default_title = "New conversation"
 
     def list_sessions(self, user: AuthenticatedUser):
+        """List a user's sessions by most recently updated first."""
         return ChatSession.objects.filter(user=user).order_by("-updated_at", "-id")
 
     def create_session(self, user: AuthenticatedUser, *, title: str | None = None) -> ChatSession:
+        """Create a new chat session with an optional initial title."""
         return ChatSession.objects.create(
             user=user,
             title=title or self.default_title,
         )
 
     def get_user_session(self, user: AuthenticatedUser, *, session_id: int) -> ChatSession | None:
+        """Fetch a session by id scoped to the owning user."""
         return ChatSession.objects.filter(user=user, id=session_id).first()
 
     def assign_title_from_message(self, session: ChatSession, *, message_text: str) -> ChatSession:
+        """Set a default session title from the first user message (only if still untitled)."""
         if session.title != self.default_title:
             return session
 

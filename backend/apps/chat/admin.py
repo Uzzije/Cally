@@ -3,6 +3,7 @@ import json
 from django.contrib import admin
 from django.utils.html import format_html
 
+from apps.chat.models.chat_rate_limit_config import ChatRateLimitConfig
 from apps.chat.models.chat_session import ChatSession
 from apps.chat.models.chat_turn import ChatTurn
 from apps.chat.models.message import Message
@@ -76,3 +77,24 @@ class ChatTurnAdmin(admin.ModelAdmin):
         if db_field.name in {"trace_events", "eval_snapshot", "provider_metadata"} and formfield:
             formfield.initial = json.dumps(formfield.initial, indent=2, sort_keys=True)
         return formfield
+
+
+@admin.register(ChatRateLimitConfig)
+class ChatRateLimitConfigAdmin(admin.ModelAdmin):
+    list_display = ("singleton_key", "daily_message_credit_limit", "updated_at")
+    search_fields = ("singleton_key",)
+    readonly_fields = ("created_at", "updated_at")
+
+    def get_readonly_fields(self, request, obj=None):
+        if obj is None:
+            return self.readonly_fields
+        return self.readonly_fields + ("singleton_key",)
+
+    def has_add_permission(self, request):
+        base_permission = super().has_add_permission(request)
+        if not base_permission:
+            return False
+        return not ChatRateLimitConfig.objects.exists()
+
+    def has_delete_permission(self, request, obj=None):
+        return False

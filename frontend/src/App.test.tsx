@@ -327,6 +327,89 @@ describe('Calendar workspace', () => {
     ).not.toBeInTheDocument()
   })
 
+  it('shows a reconnect notice when Google Calendar needs reauthorization', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input)
+
+        if (url.endsWith('/api/v1/auth/csrf')) {
+          return jsonResponse({ success: true })
+        }
+
+        if (url.endsWith('/api/v1/auth/me')) {
+          return buildAuthenticatedSessionResponse()
+        }
+
+        if (url.endsWith('/api/v1/chat/credits')) {
+          return buildChatCreditsResponse()
+        }
+
+        if (url.endsWith('/api/v1/settings/preferences')) {
+          return buildPreferencesResponse()
+        }
+
+        if (url.endsWith('/api/v1/calendar/sync-status')) {
+          return buildReadySyncStatusResponse({
+            has_calendar: false,
+            sync_state: 'not_started',
+            last_synced_at: null,
+          })
+        }
+
+        if (url.endsWith('/api/v1/calendar/sync')) {
+          return jsonResponse(
+            {
+              detail: 'Stored Google credential could not be decrypted. Please reconnect Google Calendar.',
+              code: 'google_reauth_required',
+            },
+            503,
+          )
+        }
+
+        if (url.endsWith('/api/v1/chat/sessions')) {
+          return jsonResponse({
+            sessions: [
+              {
+                id: 1,
+                title: 'Tomorrow planning',
+                updated_at: '2026-04-05T15:00:00Z',
+              },
+            ],
+          })
+        }
+
+        if (url.endsWith('/api/v1/chat/sessions/1/messages')) {
+          return jsonResponse({
+            session: {
+              id: 1,
+              title: 'Tomorrow planning',
+              updated_at: '2026-04-05T15:00:00Z',
+            },
+            messages: [],
+          })
+        }
+
+        return new Response('Not found', { status: 404 })
+      }),
+    )
+
+    render(
+      <MemoryRouter>
+        <App />
+      </MemoryRouter>,
+    )
+
+    expect(
+      await screen.findByRole('heading', { name: /google calendar needs to be reconnected/i }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('link', { name: /reconnect google calendar/i }),
+    ).toHaveAttribute('href', expect.stringContaining('/accounts/google/login/?process=login'))
+    expect(screen.getByRole('button', { name: /sync calendar/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /open ask cally/i })).toBeDisabled()
+  })
+
   it('requests a new event range when navigating to the next week', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
@@ -1437,7 +1520,7 @@ describe('Calendar workspace', () => {
     expect(
       await screen.findByText(/i couldn’t respond just now\. please try again\./i),
     ).toBeInTheDocument()
-    expect(screen.queryByLabelText(/assistant is thinking/i)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/cally is thinking/i)).not.toBeInTheDocument()
     expect(
       screen.getByText(/we could not generate a reply right now\./i),
     ).toBeInTheDocument()

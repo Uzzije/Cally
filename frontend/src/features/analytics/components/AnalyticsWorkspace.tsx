@@ -55,7 +55,7 @@ export function AnalyticsWorkspace({
         <section className="workspace-main-column">
           <WorkspacePageHeader
             eyebrow="Analytics"
-            intro="Revisit the analytics charts worth keeping, then refresh or delete them without reopening the original chat thread."
+            intro="Your saved charts in one place. Refresh the data or remove ones you no longer need."
             title="Saved insights dashboard"
           />
 

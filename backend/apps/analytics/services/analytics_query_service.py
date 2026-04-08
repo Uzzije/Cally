@@ -33,9 +33,11 @@ class AnalyticsQueryService:
     supported_query_types = SUPPORTED_ANALYTICS_QUERY_TYPES
 
     def __init__(self, *, calendar_query_service: CalendarQueryService | None = None) -> None:
+        """Run supported analytics queries over synced calendar events."""
         self.calendar_query_service = calendar_query_service or CalendarQueryService()
 
     def run(self, *, user: AuthenticatedUser, query_type: str) -> AnalyticsQueryResult:
+        """Dispatch a supported analytics query and return summary text plus a chart payload."""
         if query_type not in self.supported_query_types:
             raise AnalyticsQueryServiceError(f"Unsupported analytics query_type: {query_type}.")
 

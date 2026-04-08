@@ -12,6 +12,7 @@ class ChatContentBlockValidationService:
     chart_types = {"bar", "line", "pie", "heatmap"}
 
     def validate(self, content_blocks: list[dict]) -> list[dict]:
+        """Validate persisted UI content blocks (text/action_card/email_draft/chart), raising on invalid shape."""
         if not isinstance(content_blocks, list):
             raise ChatContentBlockValidationError("content_blocks must be a list.")
 
@@ -156,6 +157,42 @@ class ChatContentBlockValidationService:
         ):
             raise ChatContentBlockValidationError(
                 "email_draft status_detail must be a non-empty string when provided."
+            )
+
+        suggested_times = block.get("suggested_times", [])
+        if not isinstance(suggested_times, list):
+            raise ChatContentBlockValidationError(
+                "email_draft suggested_times must be a list when provided."
+            )
+
+        for suggested_time in suggested_times:
+            self._validate_email_draft_suggested_time(suggested_time)
+
+    def _validate_email_draft_suggested_time(self, suggested_time: dict) -> None:
+        if not isinstance(suggested_time, dict):
+            raise ChatContentBlockValidationError(
+                "email_draft suggested_times entries must be objects."
+            )
+
+        if not isinstance(suggested_time.get("date"), str) or not suggested_time["date"].strip():
+            raise ChatContentBlockValidationError(
+                "email_draft suggested_times entries require a non-empty date."
+            )
+
+        if not isinstance(suggested_time.get("start"), str) or not suggested_time["start"].strip():
+            raise ChatContentBlockValidationError(
+                "email_draft suggested_times entries require a non-empty start."
+            )
+
+        if not isinstance(suggested_time.get("end"), str) or not suggested_time["end"].strip():
+            raise ChatContentBlockValidationError(
+                "email_draft suggested_times entries require a non-empty end."
+            )
+
+        timezone = suggested_time.get("timezone")
+        if timezone is not None and (not isinstance(timezone, str) or not timezone.strip()):
+            raise ChatContentBlockValidationError(
+                "email_draft suggested_times timezone must be a non-empty string when provided."
             )
 
     def _validate_chart_block(self, block: dict) -> None:

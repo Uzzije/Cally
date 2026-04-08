@@ -7,8 +7,8 @@ from django_ratelimit.decorators import ratelimit
 from ninja import Router
 
 from apps.core.api.auth import session_auth
-from apps.accounts.api.schemas.auth_me_response_schema import AuthMeResponseSchema
-from apps.accounts.api.schemas.auth_user_schema import AuthUserSchema
+from apps.bff.api.schemas.auth_me_response_schema import AuthMeResponseSchema
+from apps.bff.api.schemas.auth_user_schema import AuthUserSchema
 from apps.accounts.services.user_profile_service import ensure_user_profile
 
 router = Router(tags=["auth"], auth=session_auth)

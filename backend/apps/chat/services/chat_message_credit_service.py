@@ -31,12 +31,14 @@ class ChatMessageCreditService:
     config_singleton_key = "default"
 
     def get_config(self) -> ChatRateLimitConfig:
+        """Return the rate limit configuration singleton."""
         config, _ = ChatRateLimitConfig.objects.get_or_create(
             singleton_key=self.config_singleton_key
         )
         return config
 
     def get_status(self, user: AuthenticatedUser) -> ChatMessageCreditStatus:
+        """Return today's credit usage and remaining credits for the user."""
         config = self.get_config()
         usage_date = timezone.localdate()
         used = (
@@ -54,6 +56,7 @@ class ChatMessageCreditService:
         )
 
     def consume_credit(self, user: AuthenticatedUser) -> ChatMessageCreditStatus:
+        """Atomically consume one credit for today, raising when the daily limit is exceeded."""
         usage_date = timezone.localdate()
         config = self.get_config()
 

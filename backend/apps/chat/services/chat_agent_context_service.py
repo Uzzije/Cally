@@ -19,6 +19,7 @@ class ChatAgentContextService:
         query_service: CalendarQueryService | None = None,
         planning_constraints_service: ChatPlanningConstraintsService | None = None,
     ) -> None:
+        """Build the runtime session_state snapshot provided to the agent loop."""
         self.query_service = query_service or CalendarQueryService()
         self.planning_constraints_service = (
             planning_constraints_service or ChatPlanningConstraintsService()
@@ -32,6 +33,7 @@ class ChatAgentContextService:
         tools: list[ToolDefinition],
         execution_profile: ChatExecutionModeProfile,
     ) -> dict:
+        """Assemble timezone, sync status, tools, and planning constraints into `session_state`."""
         default_timezone = self.query_service.get_default_timezone(session.user)
         now = timezone.localtime(timezone.now(), ZoneInfo(default_timezone))
         sync_status = self.query_service.get_sync_status(session.user)

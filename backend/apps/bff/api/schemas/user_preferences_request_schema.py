@@ -1,6 +1,6 @@
 from ninja import Schema
 
-from apps.preferences.api.schemas.blocked_time_schema import BlockedTimeSchema
+from apps.bff.api.schemas.blocked_time_schema import BlockedTimeSchema
 
 
 class UserPreferencesRequestSchema(Schema):

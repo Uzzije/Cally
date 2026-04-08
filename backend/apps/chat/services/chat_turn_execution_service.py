@@ -28,12 +28,14 @@ class ChatTurnExecutionService:
         assistant_turn_service: ChatAssistantTurnService | None = None,
         action_proposal_service: ChatActionProposalService | None = None,
     ) -> None:
+        """Execute a queued chat turn end-to-end and persist the assistant response + traces."""
         self.turn_service = turn_service or ChatTurnService()
         self.message_service = message_service or ChatMessageService()
         self.assistant_turn_service = assistant_turn_service or ChatAssistantTurnService()
         self.action_proposal_service = action_proposal_service or ChatActionProposalService()
 
     def process_turn(self, *, turn: ChatTurn) -> ChatTurn:
+        """Run provider loop for a turn, store assistant message, and mark the turn completed/failed."""
         if turn.assistant_message_id and turn.status == "completed":
             return turn
 
@@ -227,6 +229,7 @@ class ChatTurnExecutionService:
                     data={
                         "iteration": event["iteration"],
                         "decision": event["decision"],
+                        "decision_reason": event.get("decision_reason", ""),
                         "tool_name": event["tool_name"],
                         "tool_args": event["tool_args"],
                         "kind": event["kind"],

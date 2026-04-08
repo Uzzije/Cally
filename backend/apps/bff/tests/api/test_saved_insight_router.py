@@ -165,7 +165,7 @@ class SavedInsightRouterTests(TestCase):
         self.client.force_login(self.user)
 
         with patch(
-            "apps.analytics.api.routers.saved_insight_router.SavedInsightService.save_from_message",
+            "apps.bff.api.routers.saved_insight_router.SavedInsightService.save_from_message",
             side_effect=SavedInsightValidationError("This analytics result cannot be saved."),
         ):
             response = self.client.post(
@@ -255,7 +255,7 @@ class SavedInsightRouterTests(TestCase):
         )
 
         with patch(
-            "apps.analytics.api.routers.saved_insight_router.SavedInsightService.refresh",
+            "apps.bff.api.routers.saved_insight_router.SavedInsightService.refresh",
             side_effect=SavedInsightValidationError("Unable to refresh this saved insight."),
         ):
             response = self.client.post(

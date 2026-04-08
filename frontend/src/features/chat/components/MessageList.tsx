@@ -54,11 +54,11 @@ export function MessageList({
           className={`chat-message chat-message-${message.role}${message.pending ? ' is-pending' : ''}`}
         >
           <p className="chat-message-role">
-            {message.role === 'assistant' ? 'Assistant' : 'You'}
+            {message.role === 'assistant' ? 'Cally' : 'You'}
           </p>
           <div className="chat-message-body">
             {message.pending && message.role === 'assistant' ? (
-              <div className="chat-thinking" aria-label="Assistant is thinking">
+              <div className="chat-thinking" aria-label="Cally is thinking">
                 <span className="chat-thinking-dot" />
                 <span className="chat-thinking-dot" />
                 <span className="chat-thinking-dot" />

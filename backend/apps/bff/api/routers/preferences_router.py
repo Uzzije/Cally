@@ -3,18 +3,18 @@ import logging
 from ninja import Router
 
 from apps.core.api.auth import session_auth
-from apps.preferences.api.schemas.error_response_schema import ErrorResponseSchema
-from apps.preferences.api.schemas.temporary_blocked_time_schema import TemporaryBlockedTimeSchema
-from apps.preferences.api.schemas.temporary_blocked_time_request_schema import (
+from apps.bff.api.schemas.error_response_schema import ErrorResponseSchema
+from apps.bff.api.schemas.temporary_blocked_time_schema import TemporaryBlockedTimeSchema
+from apps.bff.api.schemas.temporary_blocked_time_request_schema import (
     TemporaryBlockedTimeBulkCreateRequestSchema,
 )
-from apps.preferences.api.schemas.temporary_blocked_times_response_schema import (
+from apps.bff.api.schemas.temporary_blocked_times_response_schema import (
     TemporaryBlockedTimesResponseSchema,
 )
-from apps.preferences.api.schemas.user_preferences_request_schema import (
+from apps.bff.api.schemas.user_preferences_request_schema import (
     UserPreferencesRequestSchema,
 )
-from apps.preferences.api.schemas.user_preferences_response_schema import (
+from apps.bff.api.schemas.user_preferences_response_schema import (
     UserPreferencesResponseSchema,
 )
 from apps.preferences.services.preference_query_service import PreferenceQueryService
